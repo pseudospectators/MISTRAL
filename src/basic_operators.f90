@@ -803,6 +803,8 @@ real(kind=pr) function  volume_integral( u )
   integer::ix,iy,iz,mpicode
   real(kind=pr)::int_local,dxyz
   
+  dxyz=dx*dy*dz
+  
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
       do ix=ra(1),rb(1)
