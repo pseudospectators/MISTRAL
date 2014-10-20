@@ -56,9 +56,9 @@ subroutine get_params(paramsfile,Insect)
   ! Time section
   !-----------------------------------------------------------------------------
   call param_int(PARAMS,i,"Time","nt",nt, 9999999)
-  call param_str(PARAMS,i,"Time","iTimeMethodFluid",iTimeMethodFluid,"AB2")  
+  call param_str(PARAMS,i,"Time","iTimeMethodFluid",iTimeMethodFluid,"RK4")  
   call param_dbl(PARAMS,i,"Time","Tmax",Tmax,1.d9)
-  call param_dbl(PARAMS,i,"Time","CFL",cfl,0.1d0)
+  call param_dbl(PARAMS,i,"Time","CFL",cfl,1.d0)
   call param_dbl(PARAMS,i,"Time","dt_max",dt_max,0.d0)
   call param_dbl(PARAMS,i,"Time","dt_fixed",dt_fixed,0.d0)
 
