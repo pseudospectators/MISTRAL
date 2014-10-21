@@ -21,9 +21,11 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   type(solid),dimension(1:nBeams),intent(in) :: beams
   type(diptera),intent(in) :: Insect
   
-  real(kind=pr):: volume
+  real(kind=pr):: volume, t1
   character(len=6) :: name
 
+  t1=MPI_wtime()
+  
   !--Set up file name base    
   if ( save_only_one_period == "yes" ) then
     ! overwrite files from last period to save disk space
@@ -89,7 +91,7 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
 !     call save_field_hdf5(time,'./scalar_'//name,work(:,:,:,1),"scalar")
 !   endif
   
-  
+  time_save = time_save + MPI_wtime() - t1
   if (mpirank==0) write(*,*) " ...DONE!"
 end subroutine save_fields
 

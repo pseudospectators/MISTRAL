@@ -1,4 +1,4 @@
-! Wrapper for computing the nonlinear source term for Navier-Stokes/MHD
+! The main right-hand side wrapper
 subroutine cal_nlk(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   use p3dfft_wrapper
   use basic_operators
@@ -25,6 +25,8 @@ subroutine cal_nlk(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   if ((iMoving==1).and.(iPenalization==1)) then
     call create_mask( time%time,mask,mask_color,us, Insect, beams )
   endif
+  
+!   gamma_p=max(1.d0,10.d0-9.d0*time%time/2.0d0)
   
   !-----------------------------------------------------------------------------
   ! compute RHS vector
@@ -752,17 +754,17 @@ subroutine forcing_term(time,u,forcing)
     ! compute mean velocity in this direction
     ux_mean = volume_integral(u(:,:,:,1))/(xl*yl*zl)    
     ! the force stabilizes around unity
-    forcing(1) = max(0.d0,1.d0-ux_mean)
+    forcing(1) = max(0.d0,1.d0-ux_mean)*startup_conditioner(time%time,0.d0,0.50d0)
   endif
   
   if (iMeanFlow_y=="accelerate_to_unity") then
     uy_mean = volume_integral(u(:,:,:,2))/(xl*yl*zl)
-    forcing(2) = max(0.d0,1.d0-uy_mean)
+    forcing(2) = max(0.d0,1.d0-uy_mean)*startup_conditioner(time%time,0.d0,0.50d0)
   endif
   
   if (iMeanFlow_z=="accelerate_to_unity") then
     uz_mean = volume_integral(u(:,:,:,3))/(xl*yl*zl)
-    forcing(3) = max(0.d0,1.d0-uz_mean)
+    forcing(3) = max(0.d0,1.d0-uz_mean)*startup_conditioner(time%time,0.d0,0.50d0)
   endif
   
 end subroutine forcing_term
