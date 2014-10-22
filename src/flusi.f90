@@ -145,7 +145,10 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   ! Initialize FFT (this also defines local array bounds for arrays)
   !-----------------------------------------------------------------------------  
-  call fft_initialize 
+  ! Initialize p3dfft
+  call fft_initialize
+  ! Setup communicators used for ghost point update
+  call setup_cart_groups 
   
   !-----------------------------------------------------------------------------
   ! Initialize time series output files, if not resuming a backup

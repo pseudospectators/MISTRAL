@@ -132,6 +132,9 @@ subroutine fft_initialize
   !-- Initialize P3DFFT
   call p3dfft_setup(mpidims,nx,ny,nz,MPI_COMM_WORLD, overwrite=.false.)
 
+  !-- Get Cartesian topology info
+  call p3dfft_get_mpi_info(mpitaskid,mpitasks,mpicommcart)
+
   !-- Get local sizes
   call p3dfft_get_dims(ra,rb,rs,1)  ! real blocks
   call p3dfft_get_dims(ca,cb,cs,2)  ! complex blocks
@@ -159,6 +162,8 @@ subroutine fft_initialize
   
   !-- Allocate domain partitioning tables and gather sizes from all processes 
   !-- (only for real arrays)
+  ! TODO: These tables are currently not used for communication between subdomains,
+  ! but may be still useful for development/debugging purposes.
   allocate ( ra_table(1:3,0:mpisize-1), rb_table(1:3,0:mpisize-1) )
   call MPI_ALLGATHER (ra, 3, MPI_INTEGER, ra_table, 3, MPI_INTEGER, MPI_COMM_WORLD, mpicode)
   call MPI_ALLGATHER (rb, 3, MPI_INTEGER, rb_table, 3, MPI_INTEGER, MPI_COMM_WORLD, mpicode)
