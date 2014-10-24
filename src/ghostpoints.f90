@@ -15,7 +15,7 @@
 module ghosts
  
  interface synchronize_ghosts
-   module procedure setup_cart_groups, synchronize_ghosts, synchronize_ghosts_FD
+   module procedure synchronize_ghosts, synchronize_ghosts_FD
  end interface
 
  
@@ -23,32 +23,6 @@ module ghosts
  contains 
 !!!!!!!!!!!!!!
  
-! Setup 1d communicators
-subroutine setup_cart_groups
-  use vars
-  implicit none
-  integer :: mpicolor,mpikey,mpicode
-  integer :: mpicommtmp1,mpicommtmp2
-  logical :: mpiperiods(2),period,reorder
-  ! Set parameters
-  period=.true.
-  reorder=.false.
-  ! Get Cartesian topology information
-  call MPI_CART_GET(mpicommcart,2,mpidims,mpiperiods,mpicoords,mpicode)
-  ! Communicator for line in y direction
-  mpicolor = mpicoords(2) 
-  mpikey = mpicoords(1)
-  call MPI_COMM_SPLIT (mpicommcart,mpicolor,mpikey,mpicommtmp1,mpicode)
-  call MPI_CART_CREATE(mpicommtmp1,1,mpidims(1),period,reorder,mpicommz,mpicode)
-  ! Communicator for line in z direction
-  mpicolor = mpicoords(1) 
-  mpikey = mpicoords(2)
-  call MPI_COMM_SPLIT (mpicommcart,mpicolor,mpikey,mpicommtmp2,mpicode)
-  call MPI_CART_CREATE(mpicommtmp2,1,mpidims(2),period,reorder,mpicommy,mpicode)
-end subroutine setup_cart_groups
-
-!-------------------------------------------------------------------------------
-
 ! Ghost point synchronization in all directions 
 ! For only one 3d field
 subroutine synchronize_ghosts ( fld )
@@ -122,8 +96,8 @@ subroutine synchronize_ghosts_FD_z_mpi ( fld,nc )
   real(kind=pr) :: fld_recv_l(ga(1):gb(1),ga(2):gb(2),ga(3):(ra(3)-1),1:nc),&
                    fld_recv_r(ga(1):gb(1),ga(2):gb(2),(rb(3)+1):gb(3),1:nc)
   ! Size of buffer arrays
-  nnl = (ra(3)-ga(3))*(gb(2)-ga(2)+1)*(gb(1)-ga(1)+1)
-  nnr = (gb(3)-rb(3))*(gb(2)-ga(2)+1)*(gb(1)-ga(1)+1)
+  nnl = (ra(3)-ga(3))*(gb(2)-ga(2)+1)*(gb(1)-ga(1)+1)*nc
+  nnr = (gb(3)-rb(3))*(gb(2)-ga(2)+1)*(gb(1)-ga(1)+1)*nc
   ! Copy data to buffer arrays
   fld_send_l(:,:,:,1:nc) = fld(ga(1):gb(1),ga(2):gb(2),ra(3):(2*ra(3)-ga(3)-1),1:nc)
   fld_send_r(:,:,:,1:nc) = fld(ga(1):gb(1),ga(2):gb(2),(2*rb(3)-gb(3)+1):rb(3),1:nc)
@@ -165,13 +139,11 @@ subroutine synchronize_ghosts_FD_y_mpi ( fld,nc )
   real(kind=pr) :: fld_recv_l(ga(1):gb(1),ga(2):(ra(2)-1),ga(3):gb(3),1:nc),&
                    fld_recv_r(ga(1):gb(1),(rb(2)+1):gb(2),ga(3):gb(3),1:nc)
   ! Size of buffer arrays
-  nnl = (ra(2)-ga(2))*(gb(3)-ga(3)+1)*(gb(1)-ga(1)+1)
-  nnr = (gb(2)-rb(2))*(gb(3)-ga(3)+1)*(gb(1)-ga(1)+1)
-!print *,mpirank,nnl,nnr,size(fld_send_l),size(fld_send_r),size(fld_recv_l),size(fld_recv_r)
+  nnl = (ra(2)-ga(2))*(gb(3)-ga(3)+1)*(gb(1)-ga(1)+1)*nc
+  nnr = (gb(2)-rb(2))*(gb(3)-ga(3)+1)*(gb(1)-ga(1)+1)*nc
   ! Copy data to buffer arrays
   fld_send_l(:,:,:,1:nc) = fld(ga(1):gb(1),ra(2):(2*ra(2)-ga(2)-1),ga(3):gb(3),1:nc)
   fld_send_r(:,:,:,1:nc) = fld(ga(1):gb(1),(2*rb(2)-gb(2)+1):rb(2),ga(3):gb(3),1:nc)
-
   ! Find rank of neighbors on the right
   disp=1                 !immediate neighbors
   dir=0
@@ -203,8 +175,11 @@ subroutine synchronize_ghosts_FD_x_serial ( fld,nc )
   integer,intent(in) :: nc
   real(kind=pr),intent(inout) :: fld(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nc)
   ! Copy data to ghost points. X direction is local
-  fld((rb(1)+1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nc) = fld(ra(1):(2*ra(1)-ga(1)-1),ga(2):gb(2),ga(3):gb(3),1:nc)
-  fld(ga(1):(ra(1)-1),ga(2):gb(2),ga(3):gb(3),1:nc) = fld((2*rb(1)-gb(1)+1):rb(1),ga(2):gb(2),ga(3):gb(3),1:nc)
+  ! Do nothing if there are no ghost points
+  if ((ga(1)<ra(1)).and.(gb(1)>rb(1))) then
+    fld((rb(1)+1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nc) = fld(ra(1):(2*ra(1)-ga(1)-1),ga(2):gb(2),ga(3):gb(3),1:nc)
+    fld(ga(1):(ra(1)-1),ga(2):gb(2),ga(3):gb(3),1:nc) = fld((2*rb(1)-gb(1)+1):rb(1),ga(2):gb(2),ga(3):gb(3),1:nc)
+  endif
 end subroutine synchronize_ghosts_FD_x_serial
 
 !-------------------------------------------------------------------------------
@@ -217,8 +192,11 @@ subroutine synchronize_ghosts_FD_y_serial ( fld,nc )
   integer,intent(in) :: nc
   real(kind=pr),intent(inout) :: fld(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nc)
   ! Copy data to ghost points. Y direction is local in this case
-  fld(ga(1):gb(1),(rb(2)+1):gb(2),ga(3):gb(3),1:nc) = fld(ga(1):gb(1),ra(2):(2*ra(2)-ga(2)-1),ga(3):gb(3),1:nc)
-  fld(ga(1):gb(1),ga(2):(ra(2)-1),ga(3):gb(3),1:nc) = fld(ga(1):gb(1),(2*rb(2)-gb(2)+1):rb(2),ga(3):gb(3),1:nc)
+  ! Do nothing if there are no ghost points
+  if ((ga(2)<ra(2)).and.(gb(2)>rb(2))) then
+    fld(ga(1):gb(1),(rb(2)+1):gb(2),ga(3):gb(3),1:nc) = fld(ga(1):gb(1),ra(2):(2*ra(2)-ga(2)-1),ga(3):gb(3),1:nc)
+    fld(ga(1):gb(1),ga(2):(ra(2)-1),ga(3):gb(3),1:nc) = fld(ga(1):gb(1),(2*rb(2)-gb(2)+1):rb(2),ga(3):gb(3),1:nc)
+  endif
 end subroutine synchronize_ghosts_FD_y_serial
 
 !-------------------------------------------------------------------------------
@@ -231,8 +209,11 @@ subroutine synchronize_ghosts_FD_z_serial ( fld,nc )
   integer,intent(in) :: nc
   real(kind=pr),intent(inout) :: fld(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nc)
   ! Copy data to ghost points. Z direction is local in this case
-  fld(ga(1):gb(1),ga(2):gb(2),(rb(3)+1):gb(3),1:nc) = fld(ga(1):gb(1),ga(2):gb(2),ra(3):(2*ra(3)-ga(3)-1),1:nc)
-  fld(ga(1):gb(1),ga(2):gb(2),ga(3):(ra(3)-1),1:nc) = fld(ga(1):gb(1),ga(2):gb(2),(2*rb(3)-gb(3)+1):rb(3),1:nc)
+  ! Do nothing if there are no ghost points
+  if ((ga(3)<ra(3)).and.(gb(3)>rb(3))) then
+    fld(ga(1):gb(1),ga(2):gb(2),(rb(3)+1):gb(3),1:nc) = fld(ga(1):gb(1),ga(2):gb(2),ra(3):(2*ra(3)-ga(3)-1),1:nc)
+    fld(ga(1):gb(1),ga(2):gb(2),ga(3):(ra(3)-1),1:nc) = fld(ga(1):gb(1),ga(2):gb(2),(2*rb(3)-gb(3)+1):rb(3),1:nc)
+  endif
 end subroutine synchronize_ghosts_FD_z_serial
 
 end module ghosts

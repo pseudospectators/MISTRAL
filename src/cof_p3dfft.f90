@@ -72,6 +72,37 @@ subroutine ifft3(outx,ink)
     call cofitxyz(ink(:,:,:,3),outx(:,:,:,3))    
 end subroutine ifft3
 
+!-------------------------------------------------------------------------------
+
+subroutine setup_cart_groups
+  ! Setup 1d communicators
+  use mpi
+  use vars
+  use p3dfft
+
+  implicit none
+  integer :: mpicolor,mpikey,mpicode
+  integer :: mpicommtmp1,mpicommtmp2
+  logical :: mpiperiods(2),period,reorder
+  ! Set parameters
+  period=.true.
+  reorder=.false.
+  ! Get Cartesian topology information
+  call MPI_CART_GET(mpicommcart,2,mpidims,mpiperiods,mpicoords,mpicode)
+  ! Communicator for line in y direction
+  mpicolor = mpicoords(2) 
+  mpikey = mpicoords(1)
+  call MPI_COMM_SPLIT (mpicommcart,mpicolor,mpikey,mpicommtmp1,mpicode)
+  call MPI_CART_CREATE(mpicommtmp1,1,mpidims(1),period,reorder,mpicommz,mpicode)
+  ! Communicator for line in z direction
+  mpicolor = mpicoords(1) 
+  mpikey = mpicoords(2)
+  call MPI_COMM_SPLIT (mpicommcart,mpicolor,mpikey,mpicommtmp2,mpicode)
+  call MPI_CART_CREATE(mpicommtmp2,1,mpidims(2),period,reorder,mpicommy,mpicode)
+end subroutine setup_cart_groups
+
+!-------------------------------------------------------------------------------
+
 subroutine fft_initialize
   !-----------------------------------------------------------------------------
   !     Allocate memory and initialize FFT
