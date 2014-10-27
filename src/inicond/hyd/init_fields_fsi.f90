@@ -38,7 +38,7 @@ subroutine init_fields_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
     !--------------------------------------------------
     ! couette flow
     !--------------------------------------------------  
-    R1=0.5d0
+    R1=0.4d0
     R2=1.0d0
     omega=1.25d0
     
