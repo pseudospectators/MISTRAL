@@ -631,10 +631,10 @@ subroutine RK4(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   call cal_nlk(time,u,nlk(:,:,:,:,1),work,mask,mask_color,us,Insect,beams)
   
   if (time%time+time%dt_new==tmax) then
-    tmp1=fieldmax(nlk(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1,1))
-    tmp2=fieldmax(nlk(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),2,1))
-    tmp3=fieldmax(nlk(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3,1))
-    tmp4=fieldmax(nlk(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),4,1))
+    tmp1=fieldmax(nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1,1))
+    tmp2=fieldmax(nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),2,1))
+    tmp3=fieldmax(nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),3,1))
+    tmp4=fieldmax(nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),4,1))
     if(root) write(*,*) "yo", tmp1,tmp2,tmp3,tmp4
   endif
   

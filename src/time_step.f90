@@ -139,7 +139,7 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
     call dump_runtime_backup(time,nbackup,u,Insect,beams)
   endif
 
-  if(root) write(*,'("Done time stepping; did nt=",i5," steps")') time%it-time%it_start
+  if(root) print *, "Done time stepping; did nt=",time%it-time%it_start," steps"
 end subroutine time_step
 
 
