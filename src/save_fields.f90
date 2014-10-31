@@ -17,11 +17,12 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
   real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(in)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  type(solid),dimension(1:nBeams),intent(in) :: beams
-  type(diptera),intent(in) :: Insect
-  
-  real(kind=pr):: volume
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  type(solid),dimension(1:nBeams),intent(inout) :: beams
+  type(diptera),intent(inout) :: Insect
+ 
+  real(kind=pr) :: tmp(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3) 
+  real(kind=pr) :: volume
   character(len=6) :: name
 
   !--Set up file name base    
@@ -54,7 +55,8 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   ! Save the Vorticity
   if (isaveVorticity==1) then
     !-- compute vorticity:
-    call curl_x( u(:,:,:,1:3), nlk(:,:,:,1:3,1) )
+    call curl_x( u(:,:,:,1:3), tmp )
+    nlk(:,:,:,1:3,1) = tmp(:,:,:,:)
     call save_field_hdf5(time,"./vorx_"//name,nlk(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1,1),"vorx")
     call save_field_hdf5(time,"./vory_"//name,nlk(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),2,1),"vory")
     call save_field_hdf5(time,"./vorz_"//name,nlk(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3,1),"vorz")

@@ -125,7 +125,6 @@ subroutine fft_initialize
   integer,dimension(1:3) :: ka,kb,ks,kat,kbt,kst
   logical,dimension(2) :: subcart
   real(kind=pr),dimension(:,:),allocatable :: f,ft
-  integer, dimension(:,:), allocatable :: yz_plane_local
 
   !-----------------------------------------------------------------------------
   !------ Three-dimensional FFT                                           ------
@@ -199,28 +198,6 @@ subroutine fft_initialize
   call MPI_ALLGATHER (ra, 3, MPI_INTEGER, ra_table, 3, MPI_INTEGER, MPI_COMM_WORLD, mpicode)
   call MPI_ALLGATHER (rb, 3, MPI_INTEGER, rb_table, 3, MPI_INTEGER, MPI_COMM_WORLD, mpicode)
 
-  !-- create a 2D array of size ny*nz that holds the mpirank of every point
-  !-- in the y-z plane
-  allocate (yz_plane_ranks(0:ny-1,0:nz-1) )
-  allocate (yz_plane_local(0:ny-1,0:nz-1) )
-  
-  yz_plane_local = 0
-  yz_plane_local( ra(2):rb(2), ra(3):rb(3) ) = mpirank
-  
-  call MPI_ALLREDUCE ( yz_plane_local,yz_plane_ranks,ny*nz,&
-                      MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,mpicode)
-  
-  !-- save the 2D decomposition to disk
-  if (mpirank==0) then
-    open(14,file='decomposition',status='replace')
-    do n=0,ny-1
-      do L=0,nz-1
-        write(14,'(i4.4,1x)',advance='no') yz_plane_ranks(n,L)
-      enddo
-      write(14,'(A)',advance='yes') " "
-    enddo
-    close(14)
-  endif
 end subroutine fft_initialize
 
 
@@ -243,8 +220,6 @@ subroutine fft_free
      call dfftw_destroy_plan(Desc_Handle_1D_f(j))
      call dfftw_destroy_plan(Desc_Handle_1D_b(j))
   enddo
-
-  deallocate(yz_plane_ranks)
 
 end subroutine fft_free
 

@@ -813,7 +813,7 @@ subroutine adjust_dt(time,u,dt1)
   implicit none
 
   real(kind=pr),intent(in)::time
-  real(kind=pr),intent(in)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer::mpicode
   real(kind=pr), intent(out)::dt1
   real(kind=pr)::umax
@@ -823,7 +823,7 @@ subroutine adjust_dt(time,u,dt1)
      dt1=dt_fixed
   else
      !-- FSI runs just need to respect CFL for velocity
-     umax = fieldmaxabs(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
+     umax = fieldmaxabs3(u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3))
      
      !-- Adjust time step at 0th process
      if(mpirank == 0) then

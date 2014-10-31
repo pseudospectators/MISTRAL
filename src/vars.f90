@@ -77,7 +77,7 @@ module vars
   ! Local array bounds with ghost points
   integer,dimension (1:3),save :: ga,gb
   ! Local array bounds for real arrays for all MPI processes
-  integer, dimension (:,:), allocatable, save :: ra_table, rb_table, yz_plane_ranks
+  integer, dimension (:,:), allocatable, save :: ra_table, rb_table
   ! for simplicity, store what decomposition we use 
   character(len=strlen), save :: decomposition
   

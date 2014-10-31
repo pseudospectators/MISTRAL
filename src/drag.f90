@@ -19,10 +19,10 @@ subroutine cal_drag ( t, u, mask, mask_color, us, Insect )
   implicit none
   
   type(timetype),intent(in) :: t
-  real(kind=pr),intent(in) :: u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  real(kind=pr),intent(in) :: mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(in) :: us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(in)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout) :: u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout) :: mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout) :: us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   type(diptera), intent(inout) :: Insect
   
   integer :: ix,iy,iz,mpicode
@@ -240,9 +240,9 @@ subroutine cal_unst_corrections ( t, mask, mask_color, us, Insect )
   
   type(timetype),intent(in) :: t  
   type(diptera), intent(inout) :: Insect
-  real(kind=pr),intent(in)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(in)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(in)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   
   ! is it possible to compute unsteady forces?
   logical, save :: is_possible = .false.

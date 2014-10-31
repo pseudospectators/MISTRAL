@@ -18,7 +18,7 @@ subroutine trilinear_interp_ghosts(x,field,value)
   implicit none
   real(kind=pr),dimension(1:3),intent (in) :: x
   real(kind=pr),intent(out) :: value  
-  real(kind=pr),intent(in) :: field(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout) :: field(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr)::xd,yd,zd
   real(kind=pr)::c00,c10,c01,c11,c0,c1
   integer :: ix,iy,iz
@@ -62,7 +62,7 @@ subroutine delta_interpolation(x,field,value)
   implicit none
   real(kind=pr),dimension(1:3),intent (in) :: x
   real(kind=pr),intent(out) :: value  
-  real(kind=pr),intent(in) :: field(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout) :: field(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   integer :: ix,iy,iz, N_support,ix0,iy0,iz0
   real(kind=pr) :: xx,yy,zz, delx,dely,delz
   

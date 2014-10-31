@@ -54,28 +54,29 @@ end subroutine synchronize_ghosts
 
 ! Ghost point synchronization in all directions
 ! For neq 3d fields
-subroutine synchronize_ghosts_FD ( fld )
+subroutine synchronize_ghosts_FD ( fld, nc )
   ! Routine assumes that heart of the matrix "field" (thus the regular part of 
   ! it) have been filled previously. Here, we exchange only the ghosts
   use vars
   use mpi
   implicit none
-  real(kind=pr), intent(inout) :: fld(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer, intent(in) :: nc
+  real(kind=pr), intent(inout) :: fld(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nc)
  
   ! x direction is always local
-  call synchronize_ghosts_FD_x_serial (fld,neq)
+  call synchronize_ghosts_FD_x_serial (fld,nc)
   ! y direction can be distributed or local
   if (mpidims(2)>1) then
-    call synchronize_ghosts_FD_y_mpi (fld,neq)
+    call synchronize_ghosts_FD_y_mpi (fld,nc)
   else
-    call synchronize_ghosts_FD_y_serial (fld,neq)
+    call synchronize_ghosts_FD_y_serial (fld,nc)
   endif
   ! z direction can be distributed or local
   ! p3dfft decomposes first in z, then in y
   if (mpidims(1)>1) then
-    call synchronize_ghosts_FD_z_mpi (fld,neq)
+    call synchronize_ghosts_FD_z_mpi (fld,nc)
   else
-    call synchronize_ghosts_FD_z_serial (fld,neq)
+    call synchronize_ghosts_FD_z_serial (fld,nc)
   endif
 end subroutine synchronize_ghosts_FD
 

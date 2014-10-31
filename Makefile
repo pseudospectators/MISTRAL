@@ -56,7 +56,7 @@ DIFORT= -DIFORT # define the IFORT variable
 FFLAGS += -module $(OBJDIR) # specify directory for modules.
 FFLAGS += -vec_report0
 # debug flags for ifort:
-# FFLAGS +=-CB -traceback -debug extended -fpe0 -warn -check all -gen-interfaces -warn interfaces
+FFLAGS +=-CB -traceback -debug extended -fpe0 -warn -check all -gen-interfaces -warn interfaces
 endif
 
 #IBM compiler

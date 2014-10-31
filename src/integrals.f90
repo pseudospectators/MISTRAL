@@ -24,7 +24,8 @@ subroutine write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect 
-  
+ 
+  real(kind=pr) :: tmp(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3) 
   real(kind=pr) :: kx, ky, kz, maxdiv,maxdiv_fluid, maxdiv_loc,volume, t3
   real(kind=pr) :: concentration, conc
   real(kind=pr) :: ekinf, ekinxf, ekinyf, ekinzf
@@ -55,9 +56,9 @@ subroutine write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   !-----------------------------------------------------------------------------
   call divergence( u(:,:,:,1:3), work(:,:,:,1) )
 
-  maxdiv = fieldmax( work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1) )
+  maxdiv = fieldmax( work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1) )
   work(:,:,:,1) = work(:,:,:,1)*(1.d0-mask*eps)
-  maxdiv_fluid = fieldmax( work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1) )
+  maxdiv_fluid = fieldmax( work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1) )
   
   if(mpirank == 0) then
      open(14,file='divu.t',status='unknown',position='append')
@@ -74,17 +75,21 @@ subroutine write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   nlk(:,:,:,1,1)=u(:,:,:,1)*(1.d0-mask*eps)
   nlk(:,:,:,2,1)=u(:,:,:,2)*(1.d0-mask*eps)
   nlk(:,:,:,3,1)=u(:,:,:,3)*(1.d0-mask*eps)
-  call compute_energies(nlk(:,:,:,1:3,1),ekinf,ekinxf,ekinyf,ekinzf)
+  tmp(:,:,:,:) = nlk(:,:,:,1:3,1)
+  call compute_energies(tmp,ekinf,ekinxf,ekinyf,ekinzf)
 
   ! compute dissipation rate
-  call curl( u(:,:,:,1:3), nlk(:,:,:,1:3,1) )
+  call curl( u(:,:,:,1:3), tmp )
+  nlk(:,:,:,1:3,1) = tmp
   ! dissipation in the whole domain:
-  call compute_energies(nlk(:,:,:,1:3,1),diss,dissx,dissy,dissz)
+  tmp(:,:,:,:) = nlk(:,:,:,1:3,1)
+  call compute_energies(tmp,diss,dissx,dissy,dissz)
   ! again consider only fluid domain
   nlk(:,:,:,1,1)=nlk(:,:,:,1,1)*(1.d0-mask*eps)
   nlk(:,:,:,2,1)=nlk(:,:,:,2,1)*(1.d0-mask*eps)
   nlk(:,:,:,3,1)=nlk(:,:,:,3,1)*(1.d0-mask*eps)
-  call compute_energies(nlk(:,:,:,1:3,1),dissf,dissxf,dissyf,disszf)
+  tmp(:,:,:,:) = nlk(:,:,:,1:3,1)
+  call compute_energies(tmp,dissf,dissxf,dissyf,disszf)
   
   if (iTimeMethodFluid=="AB2") then
     write(*,*) "ATTENTION write_integrals is NOT YET READY for AB2, it overwrites&
@@ -171,11 +176,11 @@ subroutine compute_energies_f(E,Ex,Ey,Ez,f1,f2,f3,mask)
   use vars
   implicit none
   
-  real(kind=pr),intent(out) :: E,Ex,Ey,Ez
-  real(kind=pr),intent(in):: f1(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(in):: f2(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(in):: f3(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(in):: mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout) :: E,Ex,Ey,Ez
+  real(kind=pr),intent(inout):: f1(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout):: f2(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout):: f3(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout):: mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr) :: LE,LEx,LEy,LEz ! local quantities
   real(kind=pr) :: v1,v2,v3
   integer :: ix,iy,iz,mpicode
@@ -287,7 +292,7 @@ subroutine compute_fluid_volume(mask,volume)
   use vars
   implicit none
 
-  real(kind=pr),intent(in)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(out) :: volume
   integer :: ix,iy,iz,mpicode
   real(kind=pr) :: Lvolume ! Process-local volume
@@ -318,7 +323,7 @@ subroutine compute_mask_volume(mask,volume)
   use vars
   implicit none
 
-  real(kind=pr),intent(in)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(out) :: volume
   integer :: mpicode
   real(kind=pr) :: Lvolume ! Process-local volume
