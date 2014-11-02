@@ -814,15 +814,18 @@ subroutine adjust_dt(time,u,dt1)
 
   real(kind=pr),intent(in)::time
   real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer::mpicode
   real(kind=pr), intent(out)::dt1
+  integer::mpicode
   real(kind=pr)::umax
+  !real(kind=pr)::tmp(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
 
   if (dt_fixed>0.0) then
      !-- fix the time step no matter what. the result may be unstable.
      dt1=dt_fixed
   else
      !-- FSI runs just need to respect CFL for velocity
+     !tmp(:,:,:,:) = u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
+     !umax = fieldmaxabs3(tmp)
      umax = fieldmaxabs3(u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3))
      
      !-- Adjust time step at 0th process

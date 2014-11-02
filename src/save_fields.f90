@@ -314,6 +314,7 @@ subroutine dump_runtime_backup(time,nbackup,u,Insect,beams)
   type(diptera),intent(in) :: Insect
 
   character(len=18) :: filename
+  real(kind=pr)::tmp(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr) :: t1
   integer :: error  ! error flags
   integer(hid_t) :: file_id       ! file identifier
@@ -349,15 +350,18 @@ subroutine dump_runtime_backup(time,nbackup,u,Insect,beams)
   call h5pclose_f(plist_id, error)
 
   ! Write the fluid backup field:
-  call dump_field_backup(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1),"ux",&
+  tmp(:,:,:) = u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1)
+  call dump_field_backup(tmp,"ux",&
        time%time,time%dt_old,time%dt_new,time%n1,time%it,file_id)
-  call dump_field_backup(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),2),"uy",&
+  tmp(:,:,:) = u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),2)
+  call dump_field_backup(tmp,"uy",&
        time%time,time%dt_old,time%dt_new,time%n1,time%it,file_id)
-  call dump_field_backup(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3),"uz",&
+  tmp(:,:,:) = u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3)
+  call dump_field_backup(tmp,"uz",&
        time%time,time%dt_old,time%dt_new,time%n1,time%it,file_id)
-  call dump_field_backup(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),4),"p",&
+  tmp(:,:,:) = u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),4)
+  call dump_field_backup(tmp,"p",&
        time%time,time%dt_old,time%dt_new,time%n1,time%it,file_id)
-
        
   ! Close the file:
   call h5fclose_f(file_id, error)
@@ -403,7 +407,7 @@ subroutine dump_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   use hdf5
   implicit none
 
-  real(kind=pr),intent(in) :: field(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout) :: field(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real (kind=pr), intent (in) :: time,dt1,dt0
   character(len=*), intent (in) :: dsetname
   integer,intent(in) :: n1,it
