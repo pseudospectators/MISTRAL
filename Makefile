@@ -9,7 +9,8 @@ FFILES = rhs.f90 fluid_time_step.f90 init_fields.f90 \
 	fft_unit_test.f90 draw_plate.f90 draw_sphere.f90 \
         kineloader.f90 rotation_matrices.f90 \
         add_channel.f90 add_cavity.f90 init_scalar.f90 \
-        passive_scalar.f90 noncircular_cylinder.f90 draw_flexible_plate.f90
+        passive_scalar.f90 noncircular_cylinder.f90 \
+        draw_flexible_plate.f90 implicit.f90
 
 # Object and module directory:
 OBJDIR=obj

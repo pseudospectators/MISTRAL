@@ -71,3 +71,46 @@ subroutine draw_cylinder_x(mask, mask_color, us)
 end subroutine draw_cylinder_x
 
 
+! draws a moving circular cylinder, the axis is the x-axis (then it can be used for 2D
+! runs as well)
+subroutine draw_moving_cylinder_x(time, mask, mask_color, us)
+  use vars
+  implicit none
+  
+  type(timetype)::time
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+
+  integer :: ix, iy, iz
+  real (kind=pr) :: x, y, z, tmp, R, N_smooth, Vc, yc
+
+  ! Velocity and positions of the cylinder
+  Vc = -1.0
+  yc = y0 + Vc * time%time
+
+  N_smooth = 1.5d0
+
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1)
+        y=dble(iy)*dy
+        z=dble(iz)*dz
+        R = dsqrt( (y-yc)**2 + (z-z0)**2 )
+        if ( R <= 0.5d0*length+2.d0*N_smooth*max(dy,dz) ) then
+          call SmoothStep (tmp, R, 0.5d0*length , N_smooth*max(dy,dz))
+          mask (ix, iy, iz) = tmp
+          us(ix,iy,iz,1) = 0.d0
+          us(ix,iy,iz,2) = Vc
+          us(ix,iy,iz,3) = 0.d0
+
+          ! assign color "1" where >0 indicates something "useful"
+          if (tmp > 1.0e-12) mask_color(ix,iy,iz) = 1
+        endif
+      enddo
+    enddo
+  enddo
+end subroutine draw_moving_cylinder_x
+
+
+
