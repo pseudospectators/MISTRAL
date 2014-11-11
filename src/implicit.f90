@@ -1,14 +1,18 @@
-! Heat equation solver (experimental)
-subroutine CN2_lin(time,fld)
+! Heat equation step using Crank-Nicolson scheme
+! time : current time
+! field : fields that are advanced in time
+! nc : number of 3d fields
+subroutine CN2_lin(time,fld,nc)
   use p3dfft_wrapper
   use basic_operators
   use vars
   implicit none
   ! Input/output
   type(timetype),intent(inout) :: time
-  real(kind=pr),intent(inout) :: fld(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout) :: fld(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nc)
+  integer,intent(inout) :: nc
   ! Local variables
-  integer :: ix,iy,iz,mpicommdir,mpiszdir,radir,rbdir,gadir,gbdir,mpirankdir
+  integer :: ix,iy,iz,ic,mpicommdir,mpiszdir,radir,rbdir,gadir,gbdir,mpirankdir
   integer :: bcipivy(2*mpidims(2)),bcipivz(2*mpidims(1))
   real(kind=pr) :: h2inv,dt,det0
   real(kind=pr) :: vly(ra(2):rb(2)),vry(ra(2):rb(2)),&
@@ -42,41 +46,48 @@ subroutine CN2_lin(time,fld)
     ! Parallel 1d solver init
     call cn2_lin_1d_mpi_init (mpicommdir,mpiszdir,mpirankdir,h2inv,radir,rbdir,dt,&
                               bcmaty,cndiagy,bcipivy,vly,vry)
-    ! Loop for all lines y=const
-    do iz = ga(3),gb(3)
-      !zz = dble(iz)*dz
-      do ix = ga(1),gb(1)
-        !xx = dble(ix)*dx 
-        ! Vector to be processed
-        utmpy(:) = fld(ix,gadir:gbdir,iz,1)
-        ! Solve linear system
-        call cn2_lin_1d_mpi_solver (mpicommdir,mpiszdir,mpirankdir,h2inv,radir,rbdir,gadir,gbdir,dt,&
-                                    bcmaty,cndiagy,bcipivy,vly,vry,utmpy)
-        ! Vector returned
-        fld(ix,radir:rbdir,iz,1) = utmpy(radir:rbdir)
-      enddo 
+    ! Loop for all fields
+    do ic = 1,nc
+      ! Loop for all lines y=const
+      do iz = ga(3),gb(3)
+        !zz = dble(iz)*dz
+        do ix = ga(1),gb(1)
+          !xx = dble(ix)*dx 
+          ! Vector to be processed
+          utmpy(:) = fld(ix,gadir:gbdir,iz,ic)
+          ! Solve linear system
+          call cn2_lin_1d_mpi_solver (mpicommdir,mpiszdir,mpirankdir,h2inv,radir,rbdir,gadir,gbdir,dt,&
+                                      bcmaty,cndiagy,bcipivy,vly,vry,utmpy)
+          ! Vector returned
+          fld(ix,radir:rbdir,iz,ic) = utmpy(radir:rbdir)
+        enddo 
+      enddo
     enddo
     ! Synchronize ghost points
-    call synchronize_ghosts_FD_y_mpi (fld(:,:,:,1),1)
+    call synchronize_ghosts_FD_y_mpi (fld(:,:,:,:),nc)
   else
     ! Serial 1d solver init
     call cn2_lin_1d_serial_init (h2inv,radir,rbdir,dt,&
                                  det0,cndiagy,vly,vry)
-    do iz=ga(3),gb(3)
-      !zz = dble(iz)*dz
-      do ix=ga(1),gb(1)
-        !xx = dble(ix)*dx 
-        ! Vector to be processed
-        utmpy(:) = fld(ix,gadir:gbdir,iz,1)
-        ! Solve linear system
-        call cn2_lin_1d_serial_solver (h2inv,radir,rbdir,gadir,gbdir,dt,&
-                                       det0,cndiagy,vly,vry,utmpy)
-        ! Vector returned
-        fld(ix,radir:rbdir,iz,1) = utmpy(radir:rbdir)
-      enddo
-    enddo    
+    ! Loop for all fields
+    do ic = 1,nc
+      ! Loop for all lines y=const
+      do iz=ga(3),gb(3)
+        !zz = dble(iz)*dz
+        do ix=ga(1),gb(1)
+          !xx = dble(ix)*dx 
+          ! Vector to be processed
+          utmpy(:) = fld(ix,gadir:gbdir,iz,ic)
+          ! Solve linear system
+          call cn2_lin_1d_serial_solver (h2inv,radir,rbdir,gadir,gbdir,dt,&
+                                         det0,cndiagy,vly,vry,utmpy)
+          ! Vector returned
+          fld(ix,radir:rbdir,iz,ic) = utmpy(radir:rbdir)
+        enddo
+      enddo    
+    enddo
     ! Synchronize ghost points
-    call synchronize_ghosts_FD_y_serial (fld(:,:,:,1),1)
+    call synchronize_ghosts_FD_y_serial (fld(:,:,:,:),nc)
   endif
 
   ! Z DIRECTION
@@ -93,68 +104,81 @@ subroutine CN2_lin(time,fld)
     ! Parallel 1d solver init
     call cn2_lin_1d_mpi_init (mpicommdir,mpiszdir,mpirankdir,h2inv,radir,rbdir,dt,&
                               bcmatz,cndiagz,bcipivz,vlz,vrz)
-    ! Loop for all lines y=const
-    do iy=ga(2),gb(2)
-      !yy = dble(iy)*dy
-      do ix=ga(1),gb(1)
-        !xx = dble(ix)*dx 
-        ! Vector to be processed
-        utmpz(:) = fld(ix,iy,gadir:gbdir,1)
-        call cn2_lin_1d_mpi_solver (mpicommdir,mpiszdir,mpirankdir,h2inv,radir,rbdir,gadir,gbdir,dt,&
-                                    bcmatz,cndiagz,bcipivz,vlz,vrz,utmpz)
-        ! Vector returned
-        fld(ix,iy,radir:rbdir,1) = utmpz(radir:rbdir)
-      enddo 
+    ! Loop for all fields
+    do ic = 1,nc
+      ! Loop for all lines z=const
+      do iy=ga(2),gb(2)
+        !yy = dble(iy)*dy
+        do ix=ga(1),gb(1)
+          !xx = dble(ix)*dx 
+          ! Vector to be processed
+          utmpz(:) = fld(ix,iy,gadir:gbdir,ic)
+          call cn2_lin_1d_mpi_solver (mpicommdir,mpiszdir,mpirankdir,h2inv,radir,rbdir,gadir,gbdir,dt,&
+                                      bcmatz,cndiagz,bcipivz,vlz,vrz,utmpz)
+          ! Vector returned
+          fld(ix,iy,radir:rbdir,ic) = utmpz(radir:rbdir)
+        enddo 
+      enddo
     enddo
     ! Synchronize ghost points
-    call synchronize_ghosts_FD_z_mpi (fld(:,:,:,1),1)
+    call synchronize_ghosts_FD_z_mpi (fld(:,:,:,:),nc)
   else
     ! Serial 1d solver init
     call cn2_lin_1d_serial_init (h2inv,radir,rbdir,dt,&
                                  det0,cndiagz,vlz,vrz)
-    do iy=ga(2),gb(2)
-      !yy = dble(iy)*dy
-      do ix=ga(1),gb(1)
-        !xx = dble(ix)*dx 
-        ! Vector to be processed
-        utmpz(:) = fld(ix,iy,gadir:gbdir,1)
-        ! Solve linear system
-        call cn2_lin_1d_serial_solver (h2inv,radir,rbdir,gadir,gbdir,dt,&
-                                       det0,cndiagz,vlz,vrz,utmpz)
-        ! Vector returned
-        fld(ix,iy,radir:rbdir,1) = utmpz(radir:rbdir)
-      enddo
-    enddo    
+    ! Loop for all fields
+    do ic = 1,nc
+      ! Loop for all lines z=const
+      do iy=ga(2),gb(2)
+        !yy = dble(iy)*dy
+        do ix=ga(1),gb(1)
+          !xx = dble(ix)*dx 
+          ! Vector to be processed
+          utmpz(:) = fld(ix,iy,gadir:gbdir,ic)
+          ! Solve linear system
+          call cn2_lin_1d_serial_solver (h2inv,radir,rbdir,gadir,gbdir,dt,&
+                                         det0,cndiagz,vlz,vrz,utmpz)
+          ! Vector returned
+          fld(ix,iy,radir:rbdir,ic) = utmpz(radir:rbdir)
+        enddo
+      enddo    
+    enddo
     ! Synchronize ghost points
-    call synchronize_ghosts_FD_z_serial (fld(:,:,:,1),1)
+    call synchronize_ghosts_FD_z_serial (fld(:,:,:,:),nc)
   endif
 
   ! X DIRECTION
-  ! Set up parameters in x direction
-  h2inv =  1.d0/(dx**2)
-  radir = ra(1)
-  rbdir = rb(1)
-  gadir = ga(1)
-  gbdir = gb(1)
-  ! Serial 1d solver init
-  call cn2_lin_1d_serial_init (h2inv,radir,rbdir,dt,&
-                               det0,cndiagx,vlx,vrx)
-  ! Loop for all lines x=const. This is local.
-  do iz=ga(3),gb(3)
-    !zz = dble(iz)*dz
-    do iy=ga(2),gb(2)
-      !xx = dble(ix)*dx 
-      ! Vector to be processed
-      utmpx(:) = fld(gadir:gbdir,iy,iz,1)
-      ! Solve linear system
-      call cn2_lin_1d_serial_solver (h2inv,radir,rbdir,gadir,gbdir,dt,&
-                                     det0,cndiagx,vlx,vrx,utmpx)
-      ! Vector returned
-      fld(radir:rbdir,iy,iz,1) = utmpx(radir:rbdir)
+  ! Only if 3d
+  if (nx.ne.1) then
+    ! Set up parameters in x direction
+    h2inv =  1.d0/(dx**2)
+    radir = ra(1)
+    rbdir = rb(1)
+    gadir = ga(1)
+    gbdir = gb(1)
+    ! Serial 1d solver init
+    call cn2_lin_1d_serial_init (h2inv,radir,rbdir,dt,&
+                                 det0,cndiagx,vlx,vrx)
+    ! Loop for all fields
+    do ic = 1,nc
+      ! Loop for all lines x=const. This is local.
+      do iz=ga(3),gb(3)
+        !zz = dble(iz)*dz
+        do iy=ga(2),gb(2)
+          !xx = dble(ix)*dx 
+          ! Vector to be processed
+          utmpx(:) = fld(gadir:gbdir,iy,iz,ic)
+          ! Solve linear system
+          call cn2_lin_1d_serial_solver (h2inv,radir,rbdir,gadir,gbdir,dt,&
+                                         det0,cndiagx,vlx,vrx,utmpx)
+          ! Vector returned
+          fld(radir:rbdir,iy,iz,ic) = utmpx(radir:rbdir)
+        enddo
+      enddo    
     enddo
-  enddo    
-  ! Synchronize ghost points
-  call synchronize_ghosts_FD_x_serial (fld(:,:,:,1),1)
+    ! Synchronize ghost points
+    call synchronize_ghosts_FD_x_serial (fld(:,:,:,:),nc)
+  endif
 
 end subroutine CN2_lin
 

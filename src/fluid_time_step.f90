@@ -29,6 +29,13 @@ subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
       call RK2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   case("RK4")
       call RK4(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+  case("RK4_CN2")
+      if (method=="spectral") then
+        if (root) write(*,*) &
+           "Use RK4_CN2 cannot be used with spectral"
+        call abort()
+      endif
+      call RK4_CN2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   case("AB2")
       if(time%it == 0) then
         call EE1(time,u,nlk,work,mask,mask_color,us,Insect,beams)
@@ -656,6 +663,78 @@ subroutine RK4(time,u,nlk,work,mask,mask_color,us,Insect,beams)
 end subroutine RK4
 
 !-------------------------------------------------------------------------------
+! Strang splitting, RK4 for explicit and CN2 for implicit
+!-------------------------------------------------------------------------------
+
+subroutine RK4_CN2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+  use vars
+  use solid_model
+  use insect_module
+  use basic_operators
+  implicit none
+
+  type(timetype), intent(inout) :: time
+  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq,1:nrhs)
+  real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  type(solid), dimension(1:nBeams),intent(inout) :: beams
+  type(diptera), intent(inout) :: Insect 
+  type(timetype) :: t
+  real(kind=pr)::tmp1,tmp2,tmp3,tmp4
+  integer :: nc
+
+  ! Set new time step size
+  call adjust_dt(time%time,u,time%dt_new)
+  
+  ! IMPLICIT PART: first half-step
+  ! For 3 velocity components only
+  nc = 3
+  ! Set time data for sub-steps
+  t = time
+  ! Half-step size
+  t%dt_new = 0.5d0*time%dt_new
+  ! Half-step in time
+  call CN2_lin(t,u(:,:,:,1:nc),nc)
+
+  ! EXPLICIT PART
+  ! Set time data for sub-steps
+  t = time
+  ! NLK 5th register holds old velocity
+  nlk(:,:,:,:,5) = u
+  !-- Calculate rhs and forcing
+  ! 1st stage
+  call cal_nlk(t,u,nlk(:,:,:,:,1),work,mask,mask_color,us,Insect,beams)
+  u = nlk(:,:,:,:,5) + 0.5d0*time%dt_new*nlk(:,:,:,:,1)
+  t%time = time%time + 0.5d0*time%dt_new
+  ! 2nd stage
+  call cal_nlk(t,u,nlk(:,:,:,:,2),work,mask,mask_color,us,Insect,beams)
+  u = nlk(:,:,:,:,5) + 0.5d0*time%dt_new*nlk(:,:,:,:,2)
+  t%time = time%time + 0.5d0*time%dt_new
+  ! 3rd stage
+  call cal_nlk(t,u,nlk(:,:,:,:,3),work,mask,mask_color,us,Insect,beams)
+  u = nlk(:,:,:,:,5) + time%dt_new * nlk(:,:,:,:,3)
+  t%time = time%time + time%dt_new
+  ! 4th stage
+  call cal_nlk(t,u,nlk(:,:,:,:,4),work,mask,mask_color,us,Insect,beams)
+  u = nlk(:,:,:,:,5) + time%dt_new/6.d0*(nlk(:,:,:,:,1)+2.d0*nlk(:,:,:,:,2)&
+      +2.d0*nlk(:,:,:,:,3)+nlk(:,:,:,:,4))
+  
+  ! IMPLICIT PART: second half-step
+  ! Set time data for sub-steps
+  t = time
+  ! Half-step size
+  t%dt_new = 0.5d0*time%dt_new
+  ! Half-step start
+  t%time = time%time + 0.5d0*time%dt_new
+  ! Half-step in time
+  call CN2_lin(t,u(:,:,:,1:nc),nc)
+
+end subroutine RK4_CN2
+
+!-------------------------------------------------------------------------------
 
 subroutine EE1(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   use vars
@@ -837,7 +916,13 @@ subroutine adjust_dt(time,u,dt1)
      
         !-- Impose the CFL condition.
         if (umax >= 1.0d-8) then
-           dt1=min(dx,dy,dz)*cfl/umax
+           if (nx==1) then
+             ! 2D case
+             dt1=min(dy,dz)*cfl/umax
+           else
+             ! 3D case
+             dt1=min(dx,dy,dz)*cfl/umax
+           endif
         else
            !-- umax is very very small
            dt1=1.0d-3
@@ -856,7 +941,13 @@ subroutine adjust_dt(time,u,dt1)
         endif
 
         ! CFL condition for speed of sound
-        dt1 = min( dt1, min(dx,dy,dz)*cfl/c_0 )
+        if (nx==1) then
+          ! 2D case
+          dt1 = min( dt1, min(dy,dz)*cfl/c_0 )
+        else
+          ! 3D case
+          dt1 = min( dt1, min(dx,dy,dz)*cfl/c_0 )
+        endif
         
         !-- impose max dt, if specified
         if (dt_max>0.d0) dt1=min(dt1,dt_max)
