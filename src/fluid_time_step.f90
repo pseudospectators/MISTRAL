@@ -17,7 +17,8 @@ subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
-  
+
+  integer::itgm
   real(kind=pr)::t1
   t1=MPI_wtime()
 
@@ -29,13 +30,13 @@ subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
       call RK2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   case("RK4")
       call RK4(time,u,nlk,work,mask,mask_color,us,Insect,beams)
-  case("RK4_CN2")
+  case("semiimplicit")
       if (method=="spectral") then
         if (root) write(*,*) &
-           "Use RK4_CN2 cannot be used with spectral"
+           "'semiimplicit' cannot be used with spectral"
         call abort()
       endif
-      call RK4_CN2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+      call semiimplicit_time_stepping(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   case("AB2")
       if(time%it == 0) then
         call EE1(time,u,nlk,work,mask,mask_color,us,Insect,beams)
@@ -61,8 +62,10 @@ subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
       if (root) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
       call abort()
   end select
-  
-  
+
+  ! Force zero mode for mean flow
+  call set_mean_flow(u,time%time)
+
   !-----------------------------------------------------------------------------
   ! compute unsteady corrections in every time step.
   !-----------------------------------------------------------------------------
@@ -663,78 +666,6 @@ subroutine RK4(time,u,nlk,work,mask,mask_color,us,Insect,beams)
 end subroutine RK4
 
 !-------------------------------------------------------------------------------
-! Strang splitting, RK4 for explicit and CN2 for implicit
-!-------------------------------------------------------------------------------
-
-subroutine RK4_CN2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
-  use vars
-  use solid_model
-  use insect_module
-  use basic_operators
-  implicit none
-
-  type(timetype), intent(inout) :: time
-  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq,1:nrhs)
-  real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
-  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  type(solid), dimension(1:nBeams),intent(inout) :: beams
-  type(diptera), intent(inout) :: Insect 
-  type(timetype) :: t
-  real(kind=pr)::tmp1,tmp2,tmp3,tmp4
-  integer :: nc
-
-  ! Set new time step size
-  call adjust_dt(time%time,u,time%dt_new)
-  
-  ! IMPLICIT PART: first half-step
-  ! For 3 velocity components only
-  nc = 3
-  ! Set time data for sub-steps
-  t = time
-  ! Half-step size
-  t%dt_new = 0.5d0*time%dt_new
-  ! Half-step in time
-  call CN2_lin(t,u(:,:,:,1:nc),nc)
-
-  ! EXPLICIT PART
-  ! Set time data for sub-steps
-  t = time
-  ! NLK 5th register holds old velocity
-  nlk(:,:,:,:,5) = u
-  !-- Calculate rhs and forcing
-  ! 1st stage
-  call cal_nlk(t,u,nlk(:,:,:,:,1),work,mask,mask_color,us,Insect,beams)
-  u = nlk(:,:,:,:,5) + 0.5d0*time%dt_new*nlk(:,:,:,:,1)
-  t%time = time%time + 0.5d0*time%dt_new
-  ! 2nd stage
-  call cal_nlk(t,u,nlk(:,:,:,:,2),work,mask,mask_color,us,Insect,beams)
-  u = nlk(:,:,:,:,5) + 0.5d0*time%dt_new*nlk(:,:,:,:,2)
-  t%time = time%time + 0.5d0*time%dt_new
-  ! 3rd stage
-  call cal_nlk(t,u,nlk(:,:,:,:,3),work,mask,mask_color,us,Insect,beams)
-  u = nlk(:,:,:,:,5) + time%dt_new * nlk(:,:,:,:,3)
-  t%time = time%time + time%dt_new
-  ! 4th stage
-  call cal_nlk(t,u,nlk(:,:,:,:,4),work,mask,mask_color,us,Insect,beams)
-  u = nlk(:,:,:,:,5) + time%dt_new/6.d0*(nlk(:,:,:,:,1)+2.d0*nlk(:,:,:,:,2)&
-      +2.d0*nlk(:,:,:,:,3)+nlk(:,:,:,:,4))
-  
-  ! IMPLICIT PART: second half-step
-  ! Set time data for sub-steps
-  t = time
-  ! Half-step size
-  t%dt_new = 0.5d0*time%dt_new
-  ! Half-step start
-  t%time = time%time + 0.5d0*time%dt_new
-  ! Half-step in time
-  call CN2_lin(t,u(:,:,:,1:nc),nc)
-
-end subroutine RK4_CN2
-
-!-------------------------------------------------------------------------------
 
 subroutine EE1(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   use vars
@@ -901,6 +832,8 @@ subroutine adjust_dt(time,u,dt1)
   if (dt_fixed>0.0) then
      !-- fix the time step no matter what. the result may be unstable.
      dt1=dt_fixed
+     !-- stop exactly at tmax
+     if (dt1 > tmax-time .and. tmax-time>0.d0) dt1=tmax-time
   else
      !-- FSI runs just need to respect CFL for velocity
      !tmp(:,:,:,:) = u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
@@ -959,3 +892,34 @@ subroutine adjust_dt(time,u,dt1)
   endif
   
 end subroutine adjust_dt
+
+
+!-------------------------------------------------------------------------------
+! Force the mean flow
+!-------------------------------------------------------------------------------
+subroutine set_mean_flow(u,time)
+  use vars
+  use ghosts
+  use basic_operators
+  implicit none
+  
+  real(kind=pr),intent(inout) :: u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
+  real(kind=pr),intent(inout) :: time
+  real(kind=pr) :: uxmean_tmp,uymean_tmp,uzmean_tmp
+
+  ! TODO: volume_integral should be modified for stretched grid
+  if (iMeanFlow_x=="fixed") then 
+    uxmean_tmp = volume_integral(u(:,:,:,1)) / (xl*yl*zl)
+    u(:,:,:,1) = u(:,:,:,1) - uxmean_tmp + Uxmean
+  endif
+  if (iMeanFlow_y=="fixed") then
+    uymean_tmp = volume_integral(u(:,:,:,2)) / (xl*yl*zl)
+    u(:,:,:,2) = u(:,:,:,2) - uymean_tmp + Uymean
+  endif
+  if (iMeanFlow_z=="fixed") then
+    uzmean_tmp = volume_integral(u(:,:,:,3)) / (xl*yl*zl)
+    u(:,:,:,3) = u(:,:,:,3) - uzmean_tmp + Uzmean
+  endif
+end subroutine set_mean_flow
+
+

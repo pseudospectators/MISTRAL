@@ -18,7 +18,7 @@ subroutine init_fields_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
     
   integer :: ix,iy,iz
   real (kind=pr) :: x,y,z,r,gamma0,x00,r00,omega,a,b
-  real (kind=pr) :: R1,R2,uu
+  real (kind=pr) :: R1,R2,uu,r12,r22,Om,y1,y2,z1,z2,r02
 
   ! Assign zero values
   time%time = 0.0d0
@@ -79,14 +79,58 @@ subroutine init_fields_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
       do iy=ra(2),rb(2)
         y = dble(iy)*dy
         z = dble(iz)*dz
+        u(:,iy,iz,1) = 0.0d0
         u(:,iy,iz,2) = dsin( y ) * dcos( z )
         u(:,iy,iz,3) =-dcos( y ) * dsin( z )
         ! remember that p is the total pressure, i.e. p+0.5u*u
         u(:,iy,iz,4) =0.25d0*(dcos(2.d0*y)+dcos(2.d0*z)) + &
-                      0.5d0*(u(:,iy,iz,2)**2+u(:,iy,iz,3)**2)
+                      0.5d0*(u(:,iy,iz,2)*u(:,iy,iz,2)+u(:,iy,iz,3)*u(:,iy,iz,3))
       enddo
     enddo
-    
+   
+  case ("guermond_minev")
+    !--------------------------------------------------
+    ! Guermond-Minev Stokes flow
+    !--------------------------------------------------
+    do iz=ra(3),rb(3)
+      do iy=ra(2),rb(2)
+        y = dble(iy)*dy
+        z = dble(iz)*dz
+        u(:,iy,iz,1) = 0.0d0
+        u(:,iy,iz,2) = dsin( y ) * dsin( z )
+        u(:,iy,iz,3) = dcos( y ) * dcos( z )
+        ! remember that p is the total pressure
+        u(:,iy,iz,4) = dcos( y ) * dsin( z )
+      enddo
+    enddo
+   
+  case ("dipole_keetels")
+    !--------------------------------------------------
+    ! Keetels et al JCP dipole
+    !--------------------------------------------------
+    do iz=ra(3),rb(3)
+      do iy=ra(2),rb(2)
+        ! Parameters
+        Om = 20d0
+        r02 = 0.2d0**2
+        y1 = 1.0d0
+        z1 = 1.0d0-0.3d0
+        y2 = 1.0d0
+        z2 = 1.0d0+0.3d0
+        y = dble(iy)*dy
+        z = dble(iz)*dz
+        ! Distances
+        r12 = (y-y1)*(y-y1)+(z-z1)*(z-z1)
+        r22 = (y-y2)*(y-y2)+(z-z2)*(z-z2)
+        ! Velocity components
+        u(:,iy,iz,1) = 0.0d0
+        u(:,iy,iz,2) = -0.5d0*Om*(z-z1)*dexp(-r12/r02)+0.5d0*Om*(z-z2)*dexp(-r22/r02)
+        u(:,iy,iz,3) = 0.5d0*Om*(y-y1)*dexp(-r12/r02)-0.5d0*Om*(y-y2)*dexp(-r22/r02)
+        ! remember that p is the total pressure, i.e. p+0.5u*u
+        u(:,iy,iz,4) =0.0d0 + 0.5d0*(u(:,iy,iz,2)*u(:,iy,iz,2)+u(:,iy,iz,3)*u(:,iy,iz,3))
+      enddo
+    enddo
+ 
   case("infile")
      !--------------------------------------------------
      ! read HDF5 files

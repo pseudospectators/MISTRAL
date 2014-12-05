@@ -115,8 +115,10 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   if (iTimeMethodFluid=="RK2") then
     nrhs=2  ! number of registers for right hand side vectors
-  elseif ((iTimeMethodFluid=="RK4").or.(iTimeMethodFluid=="RK4_CN2")) then
+  elseif (iTimeMethodFluid=="RK4") then
     nrhs=5  ! number of registers for right hand side vectors
+  elseif (iTimeMethodFluid=="semiimplicit") then
+    nrhs=3  ! number of registers for right hand side vectors
   elseif (iTimeMethodFluid=="AB2") then
     nrhs=2  ! number of registers for right hand side vectors
     time%n0=1
@@ -219,16 +221,16 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   ! initalize some insect stuff, if used
   !-----------------------------------------------------------------------------
-  ! Load kinematics from file (Dmitry, 14 Nov 2013)
-!   if (iMask=="Insect") then
-!     if (Insect%KineFromFile/="no") then
-!       if (mpirank==0) write(*,*) "Initializing kinematics loader..."
-!       call load_kine_init(mpirank)
-!     endif
-!     ! If required, initialize rigid solid dynamics solver
-!     ! and set idynamics flag on or off
-!     call rigid_solid_init(SolidDyn%idynamics,Insect)
-!   endif
+  ! Load kinematics from file
+  if (iMask=="Insect") then
+    if (Insect%KineFromFile/="no") then
+      if (mpirank==0) write(*,*) "Initializing kinematics loader..."
+      call load_kine_init(mpirank)
+    endif
+    ! If required, initialize rigid solid dynamics solver
+    ! and set idynamics flag on or off
+    call rigid_solid_init(SolidDyn%idynamics,Insect)
+  endif
   
   !-----------------------------------------------------------------------------
   ! Initial condition
@@ -251,13 +253,12 @@ subroutine Start_Simulation()
   deallocate(mask_color)
   deallocate(ra_table,rb_table)
   
-  
-!   if (iMask=="Insect") then
-!     ! Clean kinematics (Dmitry, 14 Nov 2013)
-!     if (Insect%KineFromFile/="no") call load_kine_clean
-!     ! Clean insect (the globally stored arrays for Fourier coeffs etc..)
-!     call insect_clean(Insect)
-!   endif
+  if (iMask=="Insect") then
+    ! Clean kinematics (Dmitry, 14 Nov 2013)
+    if (Insect%KineFromFile/="no") call load_kine_clean
+    ! Clean insect (the globally stored arrays for Fourier coeffs etc..)
+    call insect_clean(Insect)
+  endif
   
   ! write empty success file
   if (root) call init_empty_file("success")

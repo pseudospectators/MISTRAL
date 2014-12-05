@@ -34,32 +34,16 @@ subroutine cal_nlk(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   case ("spectral")
     call rhs_acm_spectral(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   case("centered_2nd")
-    if (iTimeMethodFluid=="RK4_CN2") then
-      if (nx==1) then
-        call rhs_acm_2nd_2D(time,u,nlk,work,mask,mask_color,us,Insect,beams,1)
-      else
-        call rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams,1)
-      endif
-    else
-      if (nx==1) then
-        call rhs_acm_2nd_2D(time,u,nlk,work,mask,mask_color,us,Insect,beams,0)
-      else 
-        call rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams,0)
-      endif
+    if (nx==1) then
+      call rhs_acm_2nd_2D(time,u,nlk,work,mask,mask_color,us,Insect,beams,0)
+    else 
+      call rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams,0)
     endif
   case("centered_4th")
-    if (iTimeMethodFluid=="RK4_CN2") then
-      if (nx==1) then
-        call rhs_acm_4th_2D(time,u,nlk,work,mask,mask_color,us,Insect,beams,1)
-      else 
-        call rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams,1)
-      endif
-    else
-      if (nx==1) then
-        call rhs_acm_4th_2D(time,u,nlk,work,mask,mask_color,us,Insect,beams,0)
-      else 
-        call rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams,0)
-      endif
+    if (nx==1) then
+      call rhs_acm_4th_2D(time,u,nlk,work,mask,mask_color,us,Insect,beams,0)
+    else 
+      call rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams,0)
     endif
   end select  
   time_rhs = time_rhs + MPI_wtime() - t1
