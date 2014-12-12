@@ -11,7 +11,7 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   use insect_module
   implicit none
 
-  type(timetype),intent(inout) :: time
+  type(timetype),intent(in) :: time
   real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq,1:nrhs)
   real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
@@ -307,7 +307,7 @@ subroutine dump_runtime_backup(time,nbackup,u,Insect,beams)
   use insect_module
   implicit none
   
-  type(timetype),intent(inout) :: time
+  type(timetype),intent(in) :: time
   integer,intent(inout) :: nbackup
   real(kind=pr),intent(in)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   type(solid),dimension(1:nBeams),intent(in) :: beams

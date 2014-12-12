@@ -134,15 +134,16 @@ subroutine Draw_Insect ( time, Insect, mask, mask_color, us)
   integer(kind=2) :: color_body, color_l, color_r
   ! what type of subroutine to call for the wings: fourier or simple
   logical :: fourier_wing = .true. ! almost always we have this
-  
+
   !-- decide what wing routine to call (call simplified wing 
   ! routines that don't use fourier)
   if (Insect%WingShape=='TwoEllipses') fourier_wing = .false.
   if (Insect%WingShape=='rectangular') fourier_wing = .false.
+  if (Insect%WingShape=='suzuki') fourier_wing = .false.
     
   !-- define the wings fourier coeffients, but only once  
   if (fourier_wing) call Setup_Wing_Fourier_coefficients(Insect)  
-    
+
   Insect%safety = 2.0d0*max(dz,dy,dx)
   Insect%smooth = 1.0d0*max(dz,dy,dx)
   smoothing = Insect%smooth
@@ -152,7 +153,7 @@ subroutine Draw_Insect ( time, Insect, mask, mask_color, us)
     write (*,*) "insects.f90::DrawInsect: the parameters iMoving or iPenalization are wrong."
     call abort()
   endif
-  
+
   !-----------------------------------------------------------------------------
   ! fetch current motion state
   !-----------------------------------------------------------------------------
@@ -269,7 +270,7 @@ subroutine Draw_Insect ( time, Insect, mask, mask_color, us)
     call draw_wing(mask,mask_color,us,Insect,color_l,M_body,M_wing_l,&
          Insect%x_pivot_l,Insect%rot_l )
   endif
-  
+
   !-----------------------------------------------------------------------------
   ! Add solid body rotation (i.e. the velocity field that originates
   ! from the body rotation and translation. Until now, the wing velocities

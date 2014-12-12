@@ -125,6 +125,7 @@ subroutine adjust_dt_impl(time,u,dt1,chflag)
   integer,intent(inout)::chflag
   integer::mpicode
   real(kind=pr)::umax
+  integer :: one=1,zero=0
 
   ! Initialize time step change flag
   chflag = 0
@@ -196,7 +197,7 @@ subroutine adjust_dt_impl(time,u,dt1,chflag)
      endif
 
      ! Broadcast time step to all processes
-     call MPI_BCAST(dt1,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
+     call MPI_BCAST(dt1,one,MPI_DOUBLE_PRECISION,zero,MPI_COMM_WORLD,mpicode)
   endif
   
 end subroutine adjust_dt_impl
@@ -848,6 +849,8 @@ subroutine impl_lin_1d_mpi_init(mpicommdir,mpiszdir,mpirankdir,h2inv,radir,rbdir
   real(kind=pr) :: sendfoo(4),recvfoo(4*mpiszdir)
   real(kind=pr) :: vl1(mpiszdir),vlN(mpiszdir),vr1(mpiszdir),vrN(mpiszdir)
   real(kind=pr) :: rhs(radir:rbdir)
+  integer :: four=4,zero=0
+
   ! Get local ranks in the line
   call MPI_COMM_RANK(mpicommdir,mpirankdir,mpicode)
   ! Crank-Nicolson matrix in x direction
@@ -878,7 +881,7 @@ subroutine impl_lin_1d_mpi_init(mpicommdir,mpiszdir,mpirankdir,h2inv,radir,rbdir
   sendfoo(2) = vl(rbdir)
   sendfoo(3) = vr(radir)
   sendfoo(4) = vr(rbdir)
-  call MPI_GATHER (sendfoo,4,MPI_DOUBLE_PRECISION,recvfoo,4,MPI_DOUBLE_PRECISION,0,mpicommdir,mpicode) 
+  call MPI_GATHER (sendfoo,four,MPI_DOUBLE_PRECISION,recvfoo,four,MPI_DOUBLE_PRECISION,zero,mpicommdir,mpicode) 
   do j = 1,mpiszdir
     vl1(j) = recvfoo(4*j-3)
     vlN(j) = recvfoo(4*j-2)
@@ -919,10 +922,11 @@ subroutine impl_lin_1d_mpi_solver(mpicommdir,mpiszdir,mpirankdir,h2inv,radir,rbd
                                  vl(radir:rbdir),vr(radir:rbdir),utmp(gadir:gbdir),u0tmp(gadir:gbdir)
   ! local variables
   integer :: j,mpicode
-  real(kind=pr) :: bcxl,bcxr,shortfoo(2*mpiszdir),longfoo(4*mpiszdir)
+  real(kind=pr) :: bcxl,bcxr,shortfoo(2),longfoo(2*mpiszdir)
   real(kind=pr) :: bcrhs(2*mpiszdir),bcx(2*mpiszdir),&
                    rhs(radir:rbdir),vf(radir:rbdir),bcxls(mpiszdir),&
                    bcxrs(mpiszdir),vf1(mpiszdir),vfN(mpiszdir)
+  integer :: zero=0,two=2
   
   ! Crank-Nicolson explicit part
   rhs(:) = utmp(radir:rbdir)-0.5d0*dt*difcoef*(u0tmp((radir-1):(rbdir-1))-2.d0*u0tmp(radir:rbdir)+u0tmp((radir+1):(rbdir+1)))*h2inv
@@ -931,7 +935,7 @@ subroutine impl_lin_1d_mpi_solver(mpicommdir,mpiszdir,mpirankdir,h2inv,radir,rbd
   ! Communicate rhs to rank 0 in the line
   shortfoo(1) = vf(radir)
   shortfoo(2) = vf(rbdir)
-  call MPI_GATHER (shortfoo,2,MPI_DOUBLE_PRECISION,longfoo,2,MPI_DOUBLE_PRECISION,0,mpicommdir,mpicode) 
+  call MPI_GATHER (shortfoo,two,MPI_DOUBLE_PRECISION,longfoo,two,MPI_DOUBLE_PRECISION,zero,mpicommdir,mpicode) 
   do j = 1,mpiszdir
     vf1(j) = longfoo(2*j-1)
     vfN(j) = longfoo(2*j)
@@ -955,7 +959,7 @@ subroutine impl_lin_1d_mpi_solver(mpicommdir,mpiszdir,mpirankdir,h2inv,radir,rbd
     longfoo(2*j-1) = bcxls(j)
     longfoo(2*j) = bcxrs(j)
   enddo
-  call MPI_SCATTER (longfoo,2,MPI_DOUBLE_PRECISION,shortfoo,2,MPI_DOUBLE_PRECISION,0,mpicommdir,mpicode) 
+  call MPI_SCATTER (longfoo,two,MPI_DOUBLE_PRECISION,shortfoo,two,MPI_DOUBLE_PRECISION,zero,mpicommdir,mpicode) 
   bcxl = shortfoo(1)
   bcxr = shortfoo(2)
   ! Superpose local solution and BC influence
@@ -1216,7 +1220,7 @@ subroutine GM_pressure(dt,fld,u,work)
   gadir = ga(2)
   gbdir = gb(2)
   ! Cases if # subdomains = 1 or >=2
-  if (mpiszdir>1) then 
+  if (mpiszdir>1) then
     ! Parallel 1d solver init
     call gm_1d_mpi_init (mpicommdir,mpiszdir,mpirankdir,h2inv,radir,rbdir,&
                          bcmaty,cndiagy,bcipivy,vly,vry)
@@ -1334,6 +1338,7 @@ subroutine gm_1d_mpi_init(mpicommdir,mpiszdir,mpirankdir,h2inv,radir,rbdir,&
   real(kind=pr) :: sendfoo(4),recvfoo(4*mpiszdir)
   real(kind=pr) :: vl1(mpiszdir),vlN(mpiszdir),vr1(mpiszdir),vrN(mpiszdir)
   real(kind=pr) :: rhs(radir:rbdir)
+  integer :: four=4,zero=0
   ! Get local ranks in the line
   call MPI_COMM_RANK(mpicommdir,mpirankdir,mpicode)
   ! Crank-Nicolson matrix in x direction
@@ -1364,7 +1369,7 @@ subroutine gm_1d_mpi_init(mpicommdir,mpiszdir,mpirankdir,h2inv,radir,rbdir,&
   sendfoo(2) = vl(rbdir)
   sendfoo(3) = vr(radir)
   sendfoo(4) = vr(rbdir)
-  call MPI_GATHER (sendfoo,4,MPI_DOUBLE_PRECISION,recvfoo,4,MPI_DOUBLE_PRECISION,0,mpicommdir,mpicode) 
+  call MPI_GATHER (sendfoo,four,MPI_DOUBLE_PRECISION,recvfoo,four,MPI_DOUBLE_PRECISION,zero,mpicommdir,mpicode) 
   do j = 1,mpiszdir
     vl1(j) = recvfoo(4*j-3)
     vlN(j) = recvfoo(4*j-2)
@@ -1404,10 +1409,11 @@ subroutine gm_1d_mpi_solver(mpicommdir,mpiszdir,mpirankdir,radir,rbdir,gadir,gbd
                                  vl(radir:rbdir),vr(radir:rbdir),utmp(gadir:gbdir)
   ! local variables
   integer :: j,mpicode
-  real(kind=pr) :: bcxl,bcxr,shortfoo(2*mpiszdir),longfoo(4*mpiszdir)
+  real(kind=pr) :: bcxl,bcxr,shortfoo(2),longfoo(2*mpiszdir)
   real(kind=pr) :: bcrhs(2*mpiszdir),bcx(2*mpiszdir),&
                    rhs(radir:rbdir),vf(radir:rbdir),bcxls(mpiszdir),&
                    bcxrs(mpiszdir),vf1(mpiszdir),vfN(mpiszdir)
+  integer :: two=2,zero=0
   
   ! Set RHS
   rhs(:) = utmp(radir:rbdir)
@@ -1416,7 +1422,7 @@ subroutine gm_1d_mpi_solver(mpicommdir,mpiszdir,mpirankdir,radir,rbdir,gadir,gbd
   ! Communicate rhs to rank 0 in the line
   shortfoo(1) = vf(radir)
   shortfoo(2) = vf(rbdir)
-  call MPI_GATHER (shortfoo,2,MPI_DOUBLE_PRECISION,longfoo,2,MPI_DOUBLE_PRECISION,0,mpicommdir,mpicode) 
+  call MPI_GATHER (shortfoo,two,MPI_DOUBLE_PRECISION,longfoo,two,MPI_DOUBLE_PRECISION,zero,mpicommdir,mpicode) 
   do j = 1,mpiszdir
     vf1(j) = longfoo(2*j-1)
     vfN(j) = longfoo(2*j)
@@ -1440,7 +1446,7 @@ subroutine gm_1d_mpi_solver(mpicommdir,mpiszdir,mpirankdir,radir,rbdir,gadir,gbd
     longfoo(2*j-1) = bcxls(j)
     longfoo(2*j) = bcxrs(j)
   enddo
-  call MPI_SCATTER (longfoo,2,MPI_DOUBLE_PRECISION,shortfoo,2,MPI_DOUBLE_PRECISION,0,mpicommdir,mpicode) 
+  call MPI_SCATTER (longfoo,two,MPI_DOUBLE_PRECISION,shortfoo,two,MPI_DOUBLE_PRECISION,zero,mpicommdir,mpicode) 
   bcxl = shortfoo(1)
   bcxr = shortfoo(2)
   ! Superpose local solution and BC influence

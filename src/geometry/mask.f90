@@ -5,15 +5,16 @@ subroutine create_mask(time,mask,mask_color,us,Insect,beams)
   use insect_module
   implicit none
 
-  real(kind=pr), intent(in) :: time  
+  real(kind=pr),intent(in) :: time  
   real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  type(solid), dimension(1:nbeams), intent(inout) :: beams
-  type(diptera), intent(inout) :: Insect
+  type(solid),dimension(1:nbeams),intent(inout) :: beams
+  type(diptera),intent(inout) :: Insect
   
   real(kind=pr) :: eps_inv
   real(kind=pr) :: t1
+
   t1 = MPI_wtime() 
   
   ! reset everything
@@ -63,7 +64,7 @@ subroutine create_mask(time,mask,mask_color,us,Insect,beams)
   if ((iCavity/="no").and.(iPenalization==1)) then
     call Add_Cavity (mask, mask_color, us)
   endif
-  
+
   ! if desired, add channel mask 
   if ((iChannel/="no").and.(iPenalization==1)) then
     call Add_Channel (mask, mask_color, us)

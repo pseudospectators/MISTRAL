@@ -32,7 +32,6 @@ subroutine init_fields_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   mask = 0.d0
   mask_color = 0
   
-  
   select case(inicond)
   case ("couette")
     !--------------------------------------------------
@@ -177,6 +176,10 @@ subroutine init_fields_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
      endif
   end select
 
+  !-----------------------------------------------------------------------------
+  ! Synchronize ghost points
+  !-----------------------------------------------------------------------------
+  call synchronize_ghosts(u,neq)
   
   !-----------------------------------------------------------------------------
   ! If module is in use, initialize also the solid solver

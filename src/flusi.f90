@@ -62,7 +62,8 @@ subroutine Start_Simulation()
   character (len=strlen) :: infile
   
   ! mask color function
-  integer(kind=2),dimension (:,:,:),allocatable,save :: mask_color
+!  integer(kind=2),dimension (:,:,:),allocatable,save :: mask_color
+  integer(kind=2),dimension (:,:,:),allocatable :: mask_color
   ! mask containing the obstacle
   real(kind=pr),dimension(:,:,:),allocatable :: mask
   ! solution vector u
@@ -77,7 +78,7 @@ subroutine Start_Simulation()
   type(diptera) :: Insect
   ! this is the solid model beams:
   type(solid), dimension(1:nBeams) :: beams
-  
+ 
   ! Set method information in vars module.
   t1 = MPI_wtime()
   neq=4  ! number of equations, can be higher than 3 if using passive scalar
@@ -231,18 +232,17 @@ subroutine Start_Simulation()
     ! and set idynamics flag on or off
     call rigid_solid_init(SolidDyn%idynamics,Insect)
   endif
-  
+ 
   !-----------------------------------------------------------------------------
   ! Initial condition
   !-----------------------------------------------------------------------------
   call init_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   
-  
   !*****************************************************************************
   ! Step forward in time
   !*****************************************************************************
   call time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,infile)
-  
+
   !-----------------------------------------------------------------------------
   ! Deallocate memory
   !-----------------------------------------------------------------------------

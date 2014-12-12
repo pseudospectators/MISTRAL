@@ -14,7 +14,7 @@ subroutine draw_wing(mask,mask_color,us,Insect,color_wing,M_body,M_wing,x_pivot,
   t1 = MPI_wtime()
   
   select case(Insect%WingShape)
-  case ("rectangular")
+  case ("rectangular","suzuki")
     call draw_wing_rectangular(mask,mask_color,us,Insect,color_wing,M_body,&
          M_wing,x_pivot,rot)
   case ("TwoEllipses")
@@ -59,7 +59,7 @@ subroutine draw_wing_fourier(mask,mask_color,us,Insect,color_wing,M_body,&
   real(kind=pr) :: y_tmp, x_tmp, z_tmp
   real(kind=pr) :: v_tmp(1:3), mask_tmp, theta
 
-  
+  !-- loop for all grid points  
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
       do ix = ra(1), rb(1)
@@ -133,10 +133,24 @@ subroutine draw_wing_rectangular(mask,mask_color,us,Insect,color_wing,M_body,&
 
   integer :: ix,iy,iz
   real(kind=pr) :: x_body(1:3),x_wing(1:3),x(1:3)
-  real(kind=pr) :: R, R0, R_tmp
-  real(kind=pr) :: y_tmp, x_tmp, z_tmp
-  real(kind=pr) :: v_tmp(1:3), mask_tmp, theta,x_top,x_bot
+  real(kind=pr) :: R,R0,R_tmp
+  real(kind=pr) :: y_tmp,x_tmp,z_tmp
+  real(kind=pr) :: v_tmp(1:3),mask_tmp,theta,x_top,x_bot,y_right,y_left
 
+  ! 'rectangular' ia g generic rectangle with parameters from file
+  ! 'suzuki' is the Suzuki et al test case wing shape
+  select case(Insect%WingShape)
+    case ('rectangular')
+      x_top = Insect%b_top
+      x_bot =-Insect%b_bot
+      y_right = Insect%L_span
+      y_left = 0.0d0
+    case ('suzuki')
+      x_top = 0.0667d0
+      x_bot = -0.35d0
+      y_right = 1.0d0
+      y_left = 0.1667d0
+  end select
   
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
@@ -151,17 +165,13 @@ subroutine draw_wing_rectangular(mask,mask_color,us,Insect,color_wing,M_body,&
           ! thickness: (note left and right wing have a different orientation of the z-axis
           ! but this does not matter since this is the same.
           if (dabs(x_wing(3))<=0.5*Insect%WingThickness + Insect%safety) then
-            ! wing shape (determine between which x-values (x_bot, x_top) the wing is
-            ! these values depend on the spanwise direction (which is y)
-            x_top = Insect%b_top
-            x_bot =-Insect%b_bot
-            ! in the x-direction, the actual wing shape plays.    
+            ! in the x-direction, the x_top and x_bot shape plays. 
             if ((x_wing(1)>x_bot-Insect%safety).and.(x_wing(1)<x_top+Insect%safety)) then        
               !-- smooth length
-              if (x_wing(2)<0.d0) then  ! xs is chordlength coordinate
-                y_tmp = steps(-x_wing(2),0.d0)
+              if ((x_wing(2)-y_left)<0.d0) then  ! xs is chordlength coordinate
+                y_tmp = steps(-(x_wing(2)-y_left),0.d0)
               else
-                y_tmp = steps( x_wing(2),Insect%L_span)
+                y_tmp = steps( (x_wing(2)-y_left),y_right-y_left)
               endif
 
               !-- smooth height

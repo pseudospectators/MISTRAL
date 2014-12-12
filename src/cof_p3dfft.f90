@@ -83,22 +83,25 @@ subroutine setup_cart_groups
   implicit none
   integer :: mpicolor,mpikey,mpicode
   integer :: mpicommtmp1,mpicommtmp2
-  logical :: mpiperiods(2),period,reorder
+  logical :: mpiperiods(2),periods(1),reorder
+  integer :: one=1,two=2,dims(1) ! Required for MPI_CART_GET, MPI_CART_CREATE in openmpi
   ! Set parameters
-  period=.true.
+  periods(1)=.true. ! This should be an array - if not, openmpi fails
   reorder=.false.
   ! Get Cartesian topology information
-  call MPI_CART_GET(mpicommcart,2,mpidims,mpiperiods,mpicoords,mpicode)
+  call MPI_CART_GET(mpicommcart,two,mpidims,mpiperiods,mpicoords,mpicode)
   ! Communicator for line in y direction
   mpicolor = mpicoords(2) 
   mpikey = mpicoords(1)
   call MPI_COMM_SPLIT (mpicommcart,mpicolor,mpikey,mpicommtmp1,mpicode)
-  call MPI_CART_CREATE(mpicommtmp1,1,mpidims(1),period,reorder,mpicommz,mpicode)
+  dims(1) = mpidims(1)
+  call MPI_CART_CREATE(mpicommtmp1,one,dims,periods,reorder,mpicommz,mpicode)
   ! Communicator for line in z direction
   mpicolor = mpicoords(1) 
   mpikey = mpicoords(2)
   call MPI_COMM_SPLIT (mpicommcart,mpicolor,mpikey,mpicommtmp2,mpicode)
-  call MPI_CART_CREATE(mpicommtmp2,1,mpidims(2),period,reorder,mpicommy,mpicode)
+  dims(1) = mpidims(2)
+  call MPI_CART_CREATE(mpicommtmp2,one,dims,periods,reorder,mpicommy,mpicode)
 end subroutine setup_cart_groups
 
 !-------------------------------------------------------------------------------
