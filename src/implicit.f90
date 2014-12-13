@@ -20,16 +20,32 @@ subroutine semiimplicit_time_stepping(time,u,nlk,work,mask,mask_color,us,Insect,
   use basic_operators
   implicit none
 
-  type(timetype), intent(inout) :: time
+  type(timetype), intent(inout)::time
   real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq,1:nrhs)
   real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
   real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  type(solid), dimension(1:nBeams),intent(inout) :: beams
-  type(diptera), intent(inout) :: Insect 
+  type(solid), dimension(1:nBeams),intent(inout)::beams
+  type(diptera), intent(inout)::Insect 
   integer :: chflag
+  real(kind=pr)::t1
+
+  ! Update mask function to ensure it is at the right time
+  if ((iMoving==1).and.(iPenalization==1)) then
+    call create_mask(time%time,mask,mask_color,us,Insect,beams,0)
+  endif
+
+  ! compute hydrodynamic forces for rigid solid solver
+  if (SolidDyn%idynamics>0) then
+    t1 = MPI_wtime()
+    if (unst_corrections==1) then
+      call cal_unst_corrections(time,mask,mask_color,us,Insect)  
+    endif
+    call cal_drag (time,u,mask,mask_color,us,Insect,0) ! note u is OLD time level
+    time_drag = time_drag + MPI_wtime() - t1
+  endif
 
   ! Set new time step size
   time%dt_old = time%dt_new
@@ -64,6 +80,19 @@ subroutine semiimplicit_time_stepping(time,u,nlk,work,mask,mask_color,us,Insect,
   ! Update nlk(:,:,:,1:3,2) to store u*^{n+1/2}
   nlk(:,:,:,1:3,2) = u(:,:,:,1:3) + 0.5d0*time%dt_new*(nlk(:,:,:,1:3,1)+nlk(:,:,:,1:3,3))
 
+  ! Newton's second law: advance in time ODEs that describe rigid solids
+  ! Predictor step
+  if (SolidDyn%idynamics>0) then
+    ! predictor step: last argument istage=0 
+    ! only the position of the solid is calculated at time%time+0.5d0*time%dt_new
+    call rigid_solid_time_step(time%time,time%dt_old,0.5d0*time%dt_new,time%it,Insect,0)
+  endif
+
+  ! Update mask function to ensure it is at the right time
+  if ((iMoving==1).and.(iPenalization==1)) then
+    call create_mask(time%time+0.5d0*time%dt_new,mask,mask_color,us,Insect,beams,0)
+  endif
+
   ! First stage of Douglas splitting: compute xi^{n+1}
   ! Stored in nlk(:,:,:,1:3,1)
   call cal_nl_expl(time%time+0.5d0*time%dt_new,nlk(:,:,:,1:neq,2),nlk(:,:,:,1:neq,1),&
@@ -93,6 +122,15 @@ subroutine semiimplicit_time_stepping(time,u,nlk,work,mask,mask_color,us,Insect,
   ! p^{n-1/2} is taken from u(:,:,:,4)
   ! p^{n+1/2} is stored in u(:,:,:,4) at output
   call GM_pressure_update(nlk(:,:,:,1:neq,2),u(:,:,:,1:neq))
+
+  ! Newton's second law: advance in time ODEs that describe rigid solids
+  ! Corrector step
+  if (SolidDyn%idynamics>0) then
+    ! corrector step: last argument istage=1
+    ! new position of the solid is calculated and rhs vector at two previous
+    ! steps is updated
+    call rigid_solid_time_step(time%time,time%dt_old,time%dt_new,time%it,Insect,1)
+  endif
 
 end subroutine semiimplicit_time_stepping
 
@@ -342,11 +380,6 @@ subroutine cal_nl_expl(time,u,rhs,work,mask,mask_color,us,Insect,beams)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   type(solid), dimension(1:nBeams),intent(inout)::beams
   type(diptera), intent(inout)::Insect 
-
-  ! Update mask function to ensure it is at the right time
-  if ((iMoving==1).and.(iPenalization==1)) then
-    call create_mask(time,mask,mask_color,us,Insect,beams)
-  endif
 
   ! Call specialized rhs subroutines
   if (nx==1) then

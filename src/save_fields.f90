@@ -65,7 +65,7 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   ! Save the Mask
   if (isaveMask == 1 .and. iPenalization == 1) then
     ! create mask at current time
-    if(iMoving==1) call create_mask( time%time, mask, mask_color, us, Insect, beams )
+    if(iMoving==1) call create_mask( time%time, mask, mask_color, us, Insect, beams, 0 )
     ! make sure mask is between 0 and 1 
     mask = mask*eps
     ! warn if we're about to store an empty mask

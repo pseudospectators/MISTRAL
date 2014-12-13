@@ -1,16 +1,18 @@
 ! Wrapper for different (possibly time-dependend) mask functions
-subroutine create_mask(time,mask,mask_color,us,Insect,beams)
+! iwrite=1: write kinematics file; iwrite=0: do not write
+subroutine create_mask(time,mask,mask_color,us,Insect,beams,iwrite)
   use vars
   use solid_model
   use insect_module
   implicit none
 
-  real(kind=pr),intent(in) :: time  
+  real(kind=pr),intent(in)::time  
   real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  type(solid),dimension(1:nbeams),intent(inout) :: beams
-  type(diptera),intent(inout) :: Insect
+  type(solid),dimension(1:nbeams),intent(inout)::beams
+  type(diptera),intent(inout)::Insect
+  integer::iwrite
   
   real(kind=pr) :: eps_inv
   real(kind=pr) :: t1
@@ -40,7 +42,7 @@ subroutine create_mask(time,mask,mask_color,us,Insect,beams)
     case ("Flapper")    
       call Flapper (time, mask, mask_color, us)    
     case ("Insect")
-      call Draw_Insect (time, Insect, mask, mask_color, us)
+      call Draw_Insect (time, Insect, mask, mask_color, us, iwrite)
     case("Flexibility")      
       call Draw_flexible_plate(time, beams(1), mask, mask_color, us)
     case ("plate","Plate")

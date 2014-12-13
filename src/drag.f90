@@ -12,8 +12,9 @@
 ! global structure "GlobalIntegrals". If we're running in "insects" mode, the 
 ! colors 1 and 2 are the forces on wings and body, respectively. These are stored
 ! in the "Insect" global struct.
+! iwrite=1: write forces to text files; iwrite=0: do not write
 !-------------------------------------------------------------------------------
-subroutine cal_drag ( t, u, mask, mask_color, us, Insect )
+subroutine cal_drag ( t, u, mask, mask_color, us, Insect, iwrite )
   use vars
   use insect_module
   implicit none
@@ -22,8 +23,9 @@ subroutine cal_drag ( t, u, mask, mask_color, us, Insect )
   real(kind=pr),intent(inout) :: u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   real(kind=pr),intent(inout) :: mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout) :: us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  type(diptera), intent(inout) :: Insect
+  integer(kind=2),intent(inout) :: mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  type(diptera),intent(inout) :: Insect
+  integer,intent(in) :: iwrite
   
   integer :: ix,iy,iz,mpicode
   integer(kind=2) :: color
@@ -190,7 +192,7 @@ subroutine cal_drag ( t, u, mask, mask_color, us, Insect )
   ! note: we also dump the unst corrections and thus suppose that they
   ! have been computed ( call cal_unst_corrections first! )
   !---------------------------------------------------------------------------
-  if(mpirank == 0) then
+  if((iwrite>0).and.(mpirank==0)) then
     if (iMask=="Insect") then
       ! Aerodynamic power is only computed for insects
       open(14,file='forces.t',status='unknown',position='append')

@@ -23,7 +23,7 @@ subroutine cal_nlk(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   ! Update mask function to ensure it is at the right time
   !-----------------------------------------------------------------------------
   if ((iMoving==1).and.(iPenalization==1)) then
-    call create_mask( time%time,mask,mask_color,us, Insect, beams )
+    call create_mask( time%time,mask,mask_color,us, Insect, beams, 0 )
   endif
   
   !-----------------------------------------------------------------------------

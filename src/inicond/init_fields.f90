@@ -27,7 +27,7 @@ subroutine init_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   ! create startup mask function
   !-----------------------------------------------------------------------------
   if (mpirank==0) write(*,'("Creating startup mask...time=",es12.4)') time%time
-  call create_mask( time%time, mask, mask_color, us, Insect, beams )
+  call create_mask( time%time, mask, mask_color, us, Insect, beams, 0 )
 
   !-----------------------------------------------------------------------------
   ! save initial conditions (if not resuming a backup)
