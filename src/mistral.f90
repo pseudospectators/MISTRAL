@@ -1,4 +1,4 @@
-program FLUSI
+program MISTRAL
   use vars
   use solid_model
   use insect_module
@@ -45,7 +45,7 @@ program FLUSI
   
   call MPI_FINALIZE(mpicode)
   call exit(0)
-end program FLUSI
+end program MISTRAL
 
 
 subroutine Start_Simulation()
@@ -95,7 +95,7 @@ subroutine Start_Simulation()
   
   if (root) then
      write(*,'(A)') '--------------------------------------'
-     write(*,'(A)') '  FLUSI-mistral'
+     write(*,'(A)') '  MISTRAL  '
      write(*,'(A)') '--------------------------------------'
      write(*,'("Running on ",i5," CPUs")') mpisize
      write(*,'(A)') '--------------------------------------'
@@ -129,7 +129,7 @@ subroutine Start_Simulation()
   elseif (iTimeMethodFluid=="FSI_RK4_semiimplicit") then
     nrhs = 5
   else
-    if (root) write(*,*) "flusi.f90 :: error: iTimeMethodFluid is unknown"
+    if (root) write(*,*) "mistral.f90 :: error: iTimeMethodFluid is unknown"
     if (root) write(*,*) iTimeMethodFluid
     call abort()
   endif
@@ -204,7 +204,7 @@ subroutine Start_Simulation()
   if (mpirank==0) then
     write(*,'(80("-"))')
     write(*,'("Allocated ",i1," real work arrays")') nrw
-    write(*,'("FLUSI allocated ",f7.1,"MB (",f5.1,"GB) of memory in total")')&
+    write(*,'("MISTRAL allocated ",f7.1,"MB (",f5.1,"GB) of memory in total")')&
     memory/(1.0d6),memory/(1.0d9)
     write(*,'("which is ",f7.1,"MB (",f4.1,"GB) per CPU")') &
     memory/(1.0d6)/dble(mpisize),memory/(1.0d9)/dble(mpisize)

@@ -279,9 +279,9 @@ subroutine compute_fluid_volume(mask,volume)
   Lvolume=0.d0
   dxyz=dx*dy*dz
 
-  do ix=ra(1),rb(1)
-    do iy=ra(2),rb(2)
-        do iz=ra(3),rb(3)
+  do iz=ra(3),rb(3)
+     do iy=ra(2),rb(2)
+        do ix=ra(1),rb(1)
           if(mask(ix,iy,iz) == 0.d0) then
               Lvolume=Lvolume +dxyz
           endif

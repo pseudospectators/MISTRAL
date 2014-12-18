@@ -69,7 +69,7 @@ DIFORT=-WF,-DTURING # this defines the TURING with the IBM compiler
 PPFLAG=-qsuffix=cpp=f90  #preprocessor flag
 endif
 
-PROGRAMS = flusi
+PROGRAMS = mistral
 
 # FFT_ROOT is set in envinroment.
 FFT_LIB = $(FFT_ROOT)/lib
@@ -94,8 +94,8 @@ FFLAGS += -I$(HDF_INC) -I$(P3DFFT_INC) -I$(FFT_INC) $(PPFLAG) $(DIFORT)
 all: directories $(PROGRAMS) 
 
 # Compile main programs, with dependencies.
-flusi: flusi.f90 $(MOBJS) $(OBJS)
-	rm -rf flusi
+mistral: mistral.f90 $(MOBJS) $(OBJS)
+	rm -rf mistral
 	$(FC) $(FFLAGS) -o $@ $^ $(LDFLAGS)
 
 # Compile modules (module dependency must be specified by hand in

@@ -283,9 +283,9 @@ subroutine cal_unst_corrections ( t, mask, mask_color, us, Insect )
   
   norm = dx*dy*dz*eps
   
-  do ix=ra(1),rb(1)
+  do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do iz=ra(3),rb(3)
+      do ix=ra(1),rb(1)
         color = mask_color(ix,iy,iz)
         ! sum up new integral as a function of color
         force_new_locx(color) = force_new_locx(color)+mask(ix,iy,iz)*us(ix,iy,iz,1)*norm
@@ -341,9 +341,9 @@ subroutine cal_unst_corrections ( t, mask, mask_color, us, Insect )
   torque_new_locy0 = 0.d0
   torque_new_locz0 = 0.d0
   
-  do ix=ra(1),rb(1)
+  do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do iz=ra(3),rb(3)  
+      do ix=ra(1),rb(1)
         ! for torque moment
         xlev = dble(ix)*dx - x0
         ylev = dble(iy)*dy - y0

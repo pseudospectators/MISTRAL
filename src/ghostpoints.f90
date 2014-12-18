@@ -8,12 +8,15 @@
 !       periodic ones. This makes applying finite differences easier and the 
 !       operation is not very expensive.
 !
-! TODO:
-!       This must be generalized to arbitrary decompositions (e.g. 1D in 
-!       x-direction, 3D and so on)
 !-------------------------------------------------------------------------------
 module ghosts
  
+!-------------------------------------------------------------------------------
+! interface for ghsot synchronization routines. you can 
+! call synchronize_ghosts(p)  (sync one field, or one component)
+! call synchronize_ghosts(u,4)  (sync four components at the same time)
+! note it is much more efficient to do the latter instead of 4 times the former
+!------------------------------------------------------------------------------- 
  interface synchronize_ghosts
    module procedure synchronize_ghosts, synchronize_ghosts_FD
  end interface
@@ -23,8 +26,11 @@ module ghosts
  contains 
 !!!!!!!!!!!!!!
  
+ 
+!------------------------------------------------------------------------------- 
 ! Ghost point synchronization in all directions 
 ! For only one 3d field
+!-------------------------------------------------------------------------------
 subroutine synchronize_ghosts ( fld )
   ! Routine assumes that heart of the matrix "fld" (thus the regular part of 
   ! it) have been filled previously. Here, we exchange only the ghosts
@@ -33,14 +39,20 @@ subroutine synchronize_ghosts ( fld )
   ! Input/output
   real(kind=pr),intent(inout) :: fld(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
 
-  ! x direction is always local
-  call synchronize_ghosts_FD_x_serial (fld,1)
-  ! y direction can be distributed or local
+  ! x direction is always local, i.e. it is not split among MPI procs. In this
+  ! direction, which is assumed PERIODIC at present, we can locally copy data
+  call synchronize_ghosts_FD_x_serial (fld,1) ! note nc=1
+  
+  
+  ! y direction can be distributed or local, i.e. is is possible that it is split
+  ! among processes.
   if (mpidims(2)>1) then
     call synchronize_ghosts_FD_y_mpi (fld,1)
   else
     call synchronize_ghosts_FD_y_serial (fld,1)
   endif
+  
+  
   ! z direction can be distributed or local
   ! p3dfft decomposes first in z, then in y
   if (mpidims(1)>1) then
@@ -50,10 +62,12 @@ subroutine synchronize_ghosts ( fld )
   endif
 end subroutine synchronize_ghosts
 
-!-------------------------------------------------------------------------------
 
+
+!-------------------------------------------------------------------------------
 ! Ghost point synchronization in all directions
-! For neq 3d fields
+! For nc 3d fields
+!-------------------------------------------------------------------------------
 subroutine synchronize_ghosts_FD ( fld, nc )
   ! Routine assumes that heart of the matrix "field" (thus the regular part of 
   ! it) have been filled previously. Here, we exchange only the ghosts
@@ -63,14 +77,19 @@ subroutine synchronize_ghosts_FD ( fld, nc )
   integer, intent(in) :: nc
   real(kind=pr), intent(inout) :: fld(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nc)
  
-  ! x direction is always local
+  ! x direction is always local, i.e. it is not split among MPI procs. In this
+  ! direction, which is assumed PERIODIC at present, we can locally copy data
   call synchronize_ghosts_FD_x_serial (fld,nc)
+  
+  
   ! y direction can be distributed or local
   if (mpidims(2)>1) then
     call synchronize_ghosts_FD_y_mpi (fld,nc)
   else
     call synchronize_ghosts_FD_y_serial (fld,nc)
   endif
+  
+  
   ! z direction can be distributed or local
   ! p3dfft decomposes first in z, then in y
   if (mpidims(1)>1) then

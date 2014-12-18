@@ -29,11 +29,6 @@ subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   case("RK4")
       call RK4(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   case("semiimplicit")
-      if (method=="spectral") then
-        if (root) write(*,*) &
-           "'semiimplicit' cannot be used with spectral"
-        call abort()
-      endif
       call semiimplicit_time_stepping(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   case("AB2")
       if(time%it == 0) then

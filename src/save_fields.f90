@@ -84,14 +84,6 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
     call save_field_hdf5(time,'./usz_'//name,us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3),"usz")
   endif
   
-!   !------------
-!   ! passive scalar
-!   !-------------
-!   if (use_passive_scalar==1) then
-!     call ifft ( ink=uk(:,:,:,4), outx=work(:,:,:,1) )
-!     call save_field_hdf5(time,'./scalar_'//name,work(:,:,:,1),"scalar")
-!   endif
-  
   time_save = time_save + MPI_wtime() - t1
   if (mpirank==0) write(*,*) " ...DONE!"
 end subroutine save_fields
@@ -173,12 +165,28 @@ subroutine save_field_hdf5(time,filename,field_out,dsetname)
 
   ! Create the file collectively. (existing files are overwritten)
 #ifdef TURING  
-  call h5fcreate_f('bglockless:'//trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
-  file_id, error, access_prp = plist_id)
+  if ( index(filename,'.h5')==0 ) then
+    ! file does not contain *.h5 ending -> add suffix
+    call h5fcreate_f('bglockless:'//trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
+    file_id, error, access_prp = plist_id)
+  else
+    ! field DOES contain .h5 ending -> just write
+    call h5fcreate_f('bglockless:'//trim(adjustl(filename)), H5F_ACC_TRUNC_F, &
+    file_id, error, access_prp = plist_id)
+  endif
 #else
-  call h5fcreate_f(trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
-  file_id, error, access_prp = plist_id)
-#endif 
+  if ( index(filename,'.h5')==0 ) then
+    ! file does not contain *.h5 ending -> add suffix
+    call h5fcreate_f(trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
+    file_id, error, access_prp = plist_id)
+  else
+    ! field DOES contain .h5 ending -> just write
+    call h5fcreate_f(trim(adjustl(filename)), H5F_ACC_TRUNC_F, &
+    file_id, error, access_prp = plist_id)
+  endif
+#endif  
+
+
   ! this closes the property list plist_id (we'll re-use it)
   call h5pclose_f(plist_id, error)
 
@@ -352,17 +360,16 @@ subroutine dump_runtime_backup(time,nbackup,u,Insect,beams)
 
   ! Write the fluid backup field:
   tmp(:,:,:) = u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1)
-  call dump_field_backup(tmp,"ux",&
-       time%time,time%dt_old,time%dt_new,time%n1,time%it,file_id)
+  call dump_field_backup(tmp,"ux",time%time,time%dt_old,time%dt_new,time%n1,time%it,file_id)
+  
   tmp(:,:,:) = u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),2)
-  call dump_field_backup(tmp,"uy",&
-       time%time,time%dt_old,time%dt_new,time%n1,time%it,file_id)
+  call dump_field_backup(tmp,"uy",time%time,time%dt_old,time%dt_new,time%n1,time%it,file_id)
+  
   tmp(:,:,:) = u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3)
-  call dump_field_backup(tmp,"uz",&
-       time%time,time%dt_old,time%dt_new,time%n1,time%it,file_id)
+  call dump_field_backup(tmp,"uz",time%time,time%dt_old,time%dt_new,time%n1,time%it,file_id)
+  
   tmp(:,:,:) = u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),4)
-  call dump_field_backup(tmp,"p",&
-       time%time,time%dt_old,time%dt_new,time%n1,time%it,file_id)
+  call dump_field_backup(tmp,"p",time%time,time%dt_old,time%dt_new,time%n1,time%it,file_id)
 
        
   ! Close the file:
