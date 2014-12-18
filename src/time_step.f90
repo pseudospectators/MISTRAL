@@ -18,7 +18,7 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
   character(len=strlen),intent(in)  :: params_file ! for runtime control  
   
   logical :: continue_timestepping
-  integer :: inter
+  integer :: inter,mpicode
   integer :: nbackup=0  ! 0 - backup to file runtime_backup0,1 - to
   ! runtime_backup1,2 - no backup
   real(kind=pr) :: t1,t2,t3,t4
@@ -129,6 +129,8 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
      endif 
      
      if(root) call save_time_stepping_info (time%it,time%it_start,time%time,t2,t1,time%dt_new,t4)
+
+     call MPI_BARRIER (MPI_COMM_WORLD,mpicode)
   enddo
 
   !-----------------------------------------------------------------------------
@@ -139,7 +141,7 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
     call dump_runtime_backup(time,nbackup,u,Insect,beams)
   endif
 
-  if(root) write(*,'("Done time stepping; did nt=",i5," steps")') time%it-time%it_start
+  if(root) print *, "Done time stepping; did nt=",time%it-time%it_start," steps"
 end subroutine time_step
 
 

@@ -171,10 +171,10 @@ subroutine taylor_couette(mask, mask_color, us)
   real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
 
-  integer :: ix, iy, iz
-  real (kind=pr) :: x, y, z, R,R1,R2,omega
+  integer :: iy, iz
+  real (kind=pr) :: y, z, R, R1, R2, omega
   
-  R1=0.5d0
+  R1=0.4d0
   R2=1.0d0
   omega=1.25d0
   
@@ -187,19 +187,25 @@ subroutine taylor_couette(mask, mask_color, us)
       
       ! inner cylinder
       if ( R<=R1) then
-        mask (ix, iy, iz) = 1.d0
-        us (ix,iy,iz,1) = 0.d0
-        us (ix,iy,iz,2) = +omega * z
-        us (ix,iy,iz,3) = -omega * y 
-        mask_color(ix,iy,iz) = 0
+        mask (:, iy, iz) = 1.d0
+        mask_color(:,iy,iz) = 0
       endif
       
       ! outer cylinder
       if (R>=R2) then
-        mask (ix, iy, iz) = 1.d0
-        us (ix,iy,iz,1:3) = 0.d0
-        mask_color(ix,iy,iz) = 0
+        mask (:, iy, iz) = 1.d0
+        mask_color(:,iy,iz) = 0
       endif
+
+      ! Velocity (also suitable for smooth mask)
+      if ( R<=0.5*(R1+R2)) then
+        us (:,iy,iz,1) = 0.d0
+        us (:,iy,iz,2) = +omega * z
+        us (:,iy,iz,3) = -omega * y
+      else
+        us (:,iy,iz,1:3) = 0.d0
+      endif
+
     enddo
   enddo
   

@@ -204,7 +204,7 @@ subroutine surface_interpolation_testing( time, beams, work,mask,mask_color,us )
   type(diptera)::insectdummy
   
   !-- create mask
-  call create_mask(time,mask,mask_color,us,insectdummy,beams)
+  call create_mask(time,mask,mask_color,us,insectdummy,beams,0)
   !-- copy mask in extended array (the one with ghost points)
   work = mask*eps
   !-- interpolate the mask at the beam surfaces

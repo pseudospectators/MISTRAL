@@ -112,37 +112,39 @@ module insect_module
 ! coordinates in various systems (global-, body-, stroke-, wing-) and calls
 ! subroutines doing the actual job of defining the mask. Note all surfaces are
 ! smoothed.
+! iwrite=1: write kinematics to file; iwrite=0: do not write
 !-------------------------------------------------------------------------------
-subroutine Draw_Insect ( time, Insect, mask, mask_color, us)
+subroutine Draw_Insect ( time, Insect, mask, mask_color, us, iwrite )
   use vars
   implicit none
   
-  real(kind=pr), intent(in) :: time
-  type(diptera),intent(inout) :: Insect  
+  real(kind=pr),intent(in)::time
+  type(diptera),intent(inout)::Insect  
   real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  integer::iwrite
   
   real(kind=pr),dimension(1:3) :: x, x_body, x_wing_l, x_wing_r, x_eye_r,&
   x_eye_l,x_head, v_tmp, rot_b_psi,rot_b_beta,rot_b_gamma
   real(kind=pr), dimension(1:3,1:3) :: M_body, M_wing_l, M_wing_r, &
     M1_b, M2_b, M3_b, M1, M2, M3, M_stroke_l, M_stroke_r, M_body_inv, &
     M_wing_l_inv, M_wing_r_inv
-  real(kind=pr)::t1
+  real(kind=pr) :: t1
   integer :: ix, iy, iz
-  integer, save :: counter = 0
   integer(kind=2) :: color_body, color_l, color_r
   ! what type of subroutine to call for the wings: fourier or simple
   logical :: fourier_wing = .true. ! almost always we have this
-  
+
   !-- decide what wing routine to call (call simplified wing 
   ! routines that don't use fourier)
   if (Insect%WingShape=='TwoEllipses') fourier_wing = .false.
   if (Insect%WingShape=='rectangular') fourier_wing = .false.
+  if (Insect%WingShape=='suzuki') fourier_wing = .false.
     
   !-- define the wings fourier coeffients, but only once  
   if (fourier_wing) call Setup_Wing_Fourier_coefficients(Insect)  
-    
+
   Insect%safety = 2.0d0*max(dz,dy,dx)
   Insect%smooth = 1.0d0*max(dz,dy,dx)
   smoothing = Insect%smooth
@@ -152,7 +154,7 @@ subroutine Draw_Insect ( time, Insect, mask, mask_color, us)
     write (*,*) "insects.f90::DrawInsect: the parameters iMoving or iPenalization are wrong."
     call abort()
   endif
-  
+
   !-----------------------------------------------------------------------------
   ! fetch current motion state
   !-----------------------------------------------------------------------------
@@ -236,11 +238,9 @@ subroutine Draw_Insect ( time, Insect, mask, mask_color, us)
   color_r = 3
   
   !-----------------------------------------------------------------------------
-  ! write kinematics to disk (Dmitry, 28 Oct 2013)
-  ! do so only every itdrag time steps (Thomas, 8 Jul 2014)
+  ! write kinematics to disk 
   !-----------------------------------------------------------------------------
-  counter = counter + 1
-  if ((mpirank == 0).and.(mod(counter,itdrag)==0)) then
+  if ((mpirank==0).and.(iwrite>0)) then
     open  (17,file='kinematics.t',status='unknown',position='append')
     write (17,'(26(es15.8,1x))') time, Insect%xc_body, Insect%psi, Insect%beta, &
         Insect%gamma, Insect%eta_stroke, Insect%alpha_l, Insect%phi_l, & 
@@ -269,7 +269,7 @@ subroutine Draw_Insect ( time, Insect, mask, mask_color, us)
     call draw_wing(mask,mask_color,us,Insect,color_l,M_body,M_wing_l,&
          Insect%x_pivot_l,Insect%rot_l )
   endif
-  
+
   !-----------------------------------------------------------------------------
   ! Add solid body rotation (i.e. the velocity field that originates
   ! from the body rotation and translation. Until now, the wing velocities

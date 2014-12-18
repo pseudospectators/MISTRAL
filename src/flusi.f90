@@ -62,7 +62,8 @@ subroutine Start_Simulation()
   character (len=strlen) :: infile
   
   ! mask color function
-  integer(kind=2),dimension (:,:,:),allocatable,save :: mask_color
+!  integer(kind=2),dimension (:,:,:),allocatable,save :: mask_color
+  integer(kind=2),dimension (:,:,:),allocatable :: mask_color
   ! mask containing the obstacle
   real(kind=pr),dimension(:,:,:),allocatable :: mask
   ! solution vector u
@@ -77,7 +78,7 @@ subroutine Start_Simulation()
   type(diptera) :: Insect
   ! this is the solid model beams:
   type(solid), dimension(1:nBeams) :: beams
-  
+ 
   ! Set method information in vars module.
   t1 = MPI_wtime()
   neq=4  ! number of equations, can be higher than 3 if using passive scalar
@@ -117,6 +118,8 @@ subroutine Start_Simulation()
     nrhs=2  ! number of registers for right hand side vectors
   elseif (iTimeMethodFluid=="RK4") then
     nrhs=5  ! number of registers for right hand side vectors
+  elseif (iTimeMethodFluid=="semiimplicit") then
+    nrhs=3  ! number of registers for right hand side vectors
   elseif (iTimeMethodFluid=="AB2") then
     nrhs=2  ! number of registers for right hand side vectors
     time%n0=1
@@ -145,7 +148,10 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   ! Initialize FFT (this also defines local array bounds for arrays)
   !-----------------------------------------------------------------------------  
-  call fft_initialize 
+  ! Initialize p3dfft
+  call fft_initialize
+  ! Setup communicators used for ghost point update
+  call setup_cart_groups 
   
   !-----------------------------------------------------------------------------
   ! Initialize time series output files, if not resuming a backup
@@ -216,28 +222,27 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   ! initalize some insect stuff, if used
   !-----------------------------------------------------------------------------
-  ! Load kinematics from file (Dmitry, 14 Nov 2013)
-!   if (iMask=="Insect") then
-!     if (Insect%KineFromFile/="no") then
-!       if (mpirank==0) write(*,*) "Initializing kinematics loader..."
-!       call load_kine_init(mpirank)
-!     endif
-!     ! If required, initialize rigid solid dynamics solver
-!     ! and set idynamics flag on or off
-!     call rigid_solid_init(SolidDyn%idynamics,Insect)
-!   endif
-  
+  ! Load kinematics from file
+  if (iMask=="Insect") then
+    if (Insect%KineFromFile/="no") then
+      if (mpirank==0) write(*,*) "Initializing kinematics loader..."
+      call load_kine_init(mpirank)
+    endif
+    ! If required, initialize rigid solid dynamics solver
+    ! and set idynamics flag on or off
+    call rigid_solid_init(SolidDyn%idynamics,Insect)
+  endif
+ 
   !-----------------------------------------------------------------------------
   ! Initial condition
   !-----------------------------------------------------------------------------
   call init_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   
-  
   !*****************************************************************************
   ! Step forward in time
   !*****************************************************************************
   call time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,infile)
-  
+
   !-----------------------------------------------------------------------------
   ! Deallocate memory
   !-----------------------------------------------------------------------------
@@ -248,13 +253,12 @@ subroutine Start_Simulation()
   deallocate(mask_color)
   deallocate(ra_table,rb_table)
   
-  
-!   if (iMask=="Insect") then
-!     ! Clean kinematics (Dmitry, 14 Nov 2013)
-!     if (Insect%KineFromFile/="no") call load_kine_clean
-!     ! Clean insect (the globally stored arrays for Fourier coeffs etc..)
-!     call insect_clean(Insect)
-!   endif
+  if (iMask=="Insect") then
+    ! Clean kinematics (Dmitry, 14 Nov 2013)
+    if (Insect%KineFromFile/="no") call load_kine_clean
+    ! Clean insect (the globally stored arrays for Fourier coeffs etc..)
+    call insect_clean(Insect)
+  endif
   
   ! write empty success file
   if (root) call init_empty_file("success")

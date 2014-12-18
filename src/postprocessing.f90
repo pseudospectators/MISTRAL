@@ -55,7 +55,7 @@ subroutine copy_hdf5file
   
   character(len=strlen) :: file_src, file_dst, dset_src, dset_dst
   real(kind=pr),dimension(:,:,:),allocatable::field
-  real(kind=pr)::time
+  type(timetype)::time
   
   call get_command_argument(3,file_src)
   call get_command_argument(4,file_dst)
@@ -64,7 +64,7 @@ subroutine copy_hdf5file
   dset_src = file_src(1:index(file_src,'_')-1)
   
   call check_file_exists ( file_src )
-  call fetch_attributes( file_src, dset_src, nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( file_src, dset_src, nx, ny, nz, xl, yl, zl, time%time )
   allocate ( field(0:nx-1,0:ny-1,0:nz-1))
   call read_single_file_serial(file_src, field)
   ra=0

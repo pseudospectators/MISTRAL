@@ -128,13 +128,13 @@ subroutine curl(out1,out2,out3,in1,in2,in3)
   implicit none
 
   ! input field in Fourier space
-  complex(kind=pr),intent(in)::in1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(in)::in2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(in)::in3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout)::in1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout)::in2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout)::in3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   ! output field in Fourier space
-  complex(kind=pr),intent(out)::out1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(out)::out2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(out)::out3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout)::out1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout)::out2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout)::out3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
 
   integer :: ix,iy,iz
   real(kind=pr) :: kx,ky,kz
@@ -278,8 +278,8 @@ subroutine curl3(ink,outk)
   implicit none
 
   ! input/output field in Fourier space
-  complex(kind=pr),intent(in)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-  complex(kind=pr),intent(out)::outk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  complex(kind=pr),intent(inout)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  complex(kind=pr),intent(inout)::outk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
 
   integer :: ix,iy,iz
   real(kind=pr) :: kx,ky,kz
@@ -312,7 +312,7 @@ subroutine curl_x( u, rotu )
 
   ! input/output field in x-space
   real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
-  real(kind=pr),intent(out)::rotu(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
+  real(kind=pr),intent(inout)::rotu(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
 
   integer :: ix,iy,iz
   real(kind=pr) :: kx,ky,kz,dxinv,dyinv,dzinv,a1,a2,a4,a5
@@ -357,7 +357,7 @@ subroutine curl_x( u, rotu )
       deallocate(ink,outk)
       
   case('centered_2nd')
-      call synchronize_ghosts( u )
+      call synchronize_ghosts( u, 3 )
       !-------------------------------------------------------------------------
       ! compute divergence(u) using second order centered period FD
       !-------------------------------------------------------------------------
@@ -399,7 +399,7 @@ subroutine curl_x( u, rotu )
       endif
       
   case('centered_4th')
-      call synchronize_ghosts( u )
+      call synchronize_ghosts( u, 3 )
       !-------------------------------------------------------------------------
       ! compute divergence(u) using second order centered period FD
       !-------------------------------------------------------------------------
@@ -459,9 +459,9 @@ subroutine divergence_k( ink, outk )
   use p3dfft_wrapper
   implicit none
   ! input vector field in Fourier space
-  complex(kind=pr),intent(in)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  complex(kind=pr),intent(inout)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
   ! output scalar field in Fourier space
-  complex(kind=pr),intent(out)::outk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout)::outk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   
   integer :: ix,iy,iz
   real(kind=pr) :: kx,ky,kz
@@ -532,7 +532,7 @@ subroutine divergence_x( u, divu )
       deallocate(ink,outk)
       
   case('centered_2nd')
-      call synchronize_ghosts_FD( u )
+      call synchronize_ghosts( u, 3 )
       !-------------------------------------------------------------------------
       ! compute divergence(u) using second order centered period FD
       !-------------------------------------------------------------------------
@@ -565,7 +565,7 @@ subroutine divergence_x( u, divu )
       endif
       
   case('centered_4th')
-      call synchronize_ghosts_FD( u )
+      call synchronize_ghosts( u, 3 )
       !-------------------------------------------------------------------------
       ! compute divergence(u) using second order centered period FD
       !-------------------------------------------------------------------------
@@ -664,15 +664,16 @@ end subroutine laplacien_inplace_filtered
 
   
 ! returns the globally largest entry of a given (real) field
+! only inner points considered
 real(kind=pr) function fieldmax( inx )
   use mpi
   use vars
   implicit none
-  real(kind=pr),intent(in):: inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout):: inx(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr) :: max_local, max_global
   integer :: mpicode
   
-  max_local = maxval(inx)
+  max_local = maxval(inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
   call MPI_ALLREDUCE (max_local,max_global,1,&
        MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode)  
   ! return the value    
@@ -683,11 +684,11 @@ end function fieldmax
 ! returns the globally smallest entry of a given (real) field
 real(kind=pr) function fieldmin( inx )
   implicit none
-  real(kind=pr),intent(in):: inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout):: inx(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr) :: min_local, min_global
   integer :: mpicode
   
-  min_local = minval(inx)
+  min_local = minval(inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
   call MPI_ALLREDUCE (min_local,min_global,1,&
        MPI_DOUBLE_PRECISION,MPI_MIN,MPI_COMM_WORLD,mpicode)  
   ! return the value    
@@ -699,10 +700,10 @@ end function fieldmin
 ! (L2-norm)
 real(kind=pr) function fieldmaxabs3( inx )
   implicit none
-  real(kind=pr),intent(in):: inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real(kind=pr),intent(inout) :: inx(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
   real(kind=pr) :: max_local, max_global, value
   integer :: mpicode
-  integer ::ix,iy,iz
+  integer :: ix, iy, iz
   max_local = 0.d0
   do ix = ra(1), rb(1)
     do iy = ra(2), rb(2)
@@ -726,13 +727,18 @@ end function fieldmaxabs3
 ! (L2-norm)
 real(kind=pr) function fieldmaxabs( inx1, inx2, inx3 )
   implicit none
-  real(kind=pr),intent(in):: inx1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(in):: inx2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(in):: inx3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout):: inx1(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout):: inx2(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout):: inx3(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr) :: max_local, max_global
   integer :: mpicode
 
-  max_local = maxval( inx1*inx1 + inx2*inx2  + inx3*inx3 )
+  max_local = maxval( inx1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) * &
+                      inx1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) + &
+                      inx2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) * &
+                      inx2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) + &
+                      inx3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) * &
+                      inx3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
   max_local = dsqrt( max_local )
   
   call MPI_ALLREDUCE (max_local,max_global,1,&
@@ -747,8 +753,8 @@ end function fieldmaxabs
 !-------------------------------------------------------------------------------
 subroutine checknan_real( field, msg )
   implicit none
-  real(kind=pr),intent(in)::field(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  character(len=*),intent(in)::msg
+  real(kind=pr),intent(inout)::field(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  character(len=*),intent(inout)::msg
   integer :: foundnan,foundnans,mpicode,ix,iy,iz
   foundnan = 0
   do ix=ra(1),rb(1)
@@ -771,8 +777,8 @@ end subroutine checknan_real
 !-------------------------------------------------------------------------------
 subroutine checknan_cmplx( field, msg )
   implicit none
-  complex(kind=pr),intent(in)::field(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  character(len=*),intent(in)::msg
+  complex(kind=pr),intent(inout)::field(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  character(len=*),intent(inout)::msg
   integer :: foundnan,foundnans,mpicode,ix,iy,iz
   foundnan = 0
   do iz=ca(1),cb(1)
@@ -798,13 +804,12 @@ real(kind=pr) function  volume_integral( u )
   implicit none
 
   ! input/output field in x-space
-  real(kind=pr),intent(in)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   
   integer::ix,iy,iz,mpicode
   real(kind=pr)::int_local,dxyz
-  
-  dxyz=dx*dy*dz
-  
+ 
+  int_local = 0.d0 
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
       do ix=ra(1),rb(1)
@@ -812,7 +817,8 @@ real(kind=pr) function  volume_integral( u )
       enddo
     enddo
   enddo    
-  
+ 
+  dxyz = dx*dy*dz 
   int_local = int_local*dxyz
 
   call MPI_ALLREDUCE (int_local,volume_integral,1,&

@@ -17,7 +17,8 @@ subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
-  
+
+  integer::itgm
   real(kind=pr)::t1
   t1=MPI_wtime()
 
@@ -29,6 +30,13 @@ subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
       call RK2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   case("RK4")
       call RK4(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+  case("semiimplicit")
+      if (method=="spectral") then
+        if (root) write(*,*) &
+           "'semiimplicit' cannot be used with spectral"
+        call abort()
+      endif
+      call semiimplicit_time_stepping(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   case("AB2")
       if(time%it == 0) then
         call EE1(time,u,nlk,work,mask,mask_color,us,Insect,beams)
@@ -54,8 +62,10 @@ subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
       if (root) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
       call abort()
   end select
-  
-  
+
+  ! Force zero mode for mean flow
+  call set_mean_flow(u,time%time)
+
   !-----------------------------------------------------------------------------
   ! compute unsteady corrections in every time step.
   !-----------------------------------------------------------------------------
@@ -631,10 +641,10 @@ subroutine RK4(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   call cal_nlk(time,u,nlk(:,:,:,:,1),work,mask,mask_color,us,Insect,beams)
   
   if (time%time+time%dt_new==tmax) then
-    tmp1=fieldmax(nlk(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1,1))
-    tmp2=fieldmax(nlk(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),2,1))
-    tmp3=fieldmax(nlk(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3,1))
-    tmp4=fieldmax(nlk(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),4,1))
+    tmp1=fieldmax(nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1,1))
+    tmp2=fieldmax(nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),2,1))
+    tmp3=fieldmax(nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),3,1))
+    tmp4=fieldmax(nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),4,1))
     if(root) write(*,*) "yo", tmp1,tmp2,tmp3,tmp4
   endif
   
@@ -813,17 +823,22 @@ subroutine adjust_dt(time,u,dt1)
   implicit none
 
   real(kind=pr),intent(in)::time
-  real(kind=pr),intent(in)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer::mpicode
+  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   real(kind=pr), intent(out)::dt1
+  integer::mpicode
   real(kind=pr)::umax
+  !real(kind=pr)::tmp(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
 
   if (dt_fixed>0.0) then
      !-- fix the time step no matter what. the result may be unstable.
      dt1=dt_fixed
+     !-- stop exactly at tmax
+     if (dt1 > tmax-time .and. tmax-time>0.d0) dt1=tmax-time
   else
      !-- FSI runs just need to respect CFL for velocity
-     umax = fieldmaxabs(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
+     !tmp(:,:,:,:) = u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
+     !umax = fieldmaxabs3(tmp)
+     umax = fieldmaxabs3(u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3))
      
      !-- Adjust time step at 0th process
      if(mpirank == 0) then
@@ -834,7 +849,13 @@ subroutine adjust_dt(time,u,dt1)
      
         !-- Impose the CFL condition.
         if (umax >= 1.0d-8) then
-           dt1=min(dx,dy,dz)*cfl/umax
+           if (nx==1) then
+             ! 2D case
+             dt1=min(dy,dz)*cfl/umax
+           else
+             ! 3D case
+             dt1=min(dx,dy,dz)*cfl/umax
+           endif
         else
            !-- umax is very very small
            dt1=1.0d-3
@@ -853,7 +874,13 @@ subroutine adjust_dt(time,u,dt1)
         endif
 
         ! CFL condition for speed of sound
-        dt1 = min( dt1, min(dx,dy,dz)*cfl/c_0 )
+        if (nx==1) then
+          ! 2D case
+          dt1 = min( dt1, min(dy,dz)*cfl/c_0 )
+        else
+          ! 3D case
+          dt1 = min( dt1, min(dx,dy,dz)*cfl/c_0 )
+        endif
         
         !-- impose max dt, if specified
         if (dt_max>0.d0) dt1=min(dt1,dt_max)
@@ -865,3 +892,34 @@ subroutine adjust_dt(time,u,dt1)
   endif
   
 end subroutine adjust_dt
+
+
+!-------------------------------------------------------------------------------
+! Force the mean flow
+!-------------------------------------------------------------------------------
+subroutine set_mean_flow(u,time)
+  use vars
+  use ghosts
+  use basic_operators
+  implicit none
+  
+  real(kind=pr),intent(inout) :: u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
+  real(kind=pr),intent(inout) :: time
+  real(kind=pr) :: uxmean_tmp,uymean_tmp,uzmean_tmp
+
+  ! TODO: volume_integral should be modified for stretched grid
+  if (iMeanFlow_x=="fixed") then 
+    uxmean_tmp = volume_integral(u(:,:,:,1)) / (xl*yl*zl)
+    u(:,:,:,1) = u(:,:,:,1) - uxmean_tmp + Uxmean
+  endif
+  if (iMeanFlow_y=="fixed") then
+    uymean_tmp = volume_integral(u(:,:,:,2)) / (xl*yl*zl)
+    u(:,:,:,2) = u(:,:,:,2) - uymean_tmp + Uymean
+  endif
+  if (iMeanFlow_z=="fixed") then
+    uzmean_tmp = volume_integral(u(:,:,:,3)) / (xl*yl*zl)
+    u(:,:,:,3) = u(:,:,:,3) - uzmean_tmp + Uzmean
+  endif
+end subroutine set_mean_flow
+
+

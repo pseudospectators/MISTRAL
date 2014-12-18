@@ -17,11 +17,12 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
   real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(in)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  type(solid),dimension(1:nBeams),intent(in) :: beams
-  type(diptera),intent(in) :: Insect
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  type(solid),dimension(1:nBeams),intent(inout) :: beams
+  type(diptera),intent(inout) :: Insect
   
-  real(kind=pr):: volume, t1
+  real(kind=pr) :: tmp(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
+  real(kind=pr) :: volume, t1
   character(len=6) :: name
 
   t1=MPI_wtime()
@@ -56,16 +57,16 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   ! Save the Vorticity
   if (isaveVorticity==1) then
     !-- compute vorticity:
-    call curl_x( u(:,:,:,1:3), nlk(:,:,:,1:3,1) )
-    call save_field_hdf5(time,"./vorx_"//name,nlk(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1,1),"vorx")
-    call save_field_hdf5(time,"./vory_"//name,nlk(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),2,1),"vory")
-    call save_field_hdf5(time,"./vorz_"//name,nlk(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3,1),"vorz")
+    call curl_x( u(:,:,:,1:3), tmp )
+    call save_field_hdf5(time,"./vorx_"//name,tmp(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1),"vorx")
+    call save_field_hdf5(time,"./vory_"//name,tmp(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),2),"vory")
+    call save_field_hdf5(time,"./vorz_"//name,tmp(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3),"vorz")
   endif
       
   ! Save the Mask
   if (isaveMask == 1 .and. iPenalization == 1) then
     ! create mask at current time
-    if(iMoving==1) call create_mask( time%time, mask, mask_color, us, Insect, beams )
+    if(iMoving==1) call create_mask( time%time, mask, mask_color, us, Insect, beams, 0 )
     ! make sure mask is between 0 and 1 
     mask = mask*eps
     ! warn if we're about to store an empty mask
@@ -172,27 +173,12 @@ subroutine save_field_hdf5(time,filename,field_out,dsetname)
 
   ! Create the file collectively. (existing files are overwritten)
 #ifdef TURING  
-  if ( index(filename,'.h5')==0 ) then
-    ! file does not contain *.h5 ending -> add suffix
-    call h5fcreate_f('bglockless:'//trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
-    file_id, error, access_prp = plist_id)
-  else
-    ! field DOES contain .h5 ending -> just write
-    call h5fcreate_f('bglockless:'//trim(adjustl(filename)), H5F_ACC_TRUNC_F, &
-    file_id, error, access_prp = plist_id)
-  endif
+  call h5fcreate_f('bglockless:'//trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
+  file_id, error, access_prp = plist_id)
 #else
-  if ( index(filename,'.h5')==0 ) then
-    ! file does not contain *.h5 ending -> add suffix
-    call h5fcreate_f(trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
-    file_id, error, access_prp = plist_id)
-  else
-    ! field DOES contain .h5 ending -> just write
-    call h5fcreate_f(trim(adjustl(filename)), H5F_ACC_TRUNC_F, &
-    file_id, error, access_prp = plist_id)
-  endif
+  call h5fcreate_f(trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
+  file_id, error, access_prp = plist_id)
 #endif 
-
   ! this closes the property list plist_id (we'll re-use it)
   call h5pclose_f(plist_id, error)
 
@@ -329,6 +315,7 @@ subroutine dump_runtime_backup(time,nbackup,u,Insect,beams)
   type(diptera),intent(in) :: Insect
 
   character(len=18) :: filename
+  real(kind=pr) :: tmp(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr) :: t1
   integer :: error  ! error flags
   integer(hid_t) :: file_id       ! file identifier
@@ -364,13 +351,17 @@ subroutine dump_runtime_backup(time,nbackup,u,Insect,beams)
   call h5pclose_f(plist_id, error)
 
   ! Write the fluid backup field:
-  call dump_field_backup(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1),"ux",&
+  tmp(:,:,:) = u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1)
+  call dump_field_backup(tmp,"ux",&
        time%time,time%dt_old,time%dt_new,time%n1,time%it,file_id)
-  call dump_field_backup(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),2),"uy",&
+  tmp(:,:,:) = u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),2)
+  call dump_field_backup(tmp,"uy",&
        time%time,time%dt_old,time%dt_new,time%n1,time%it,file_id)
-  call dump_field_backup(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3),"uz",&
+  tmp(:,:,:) = u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3)
+  call dump_field_backup(tmp,"uz",&
        time%time,time%dt_old,time%dt_new,time%n1,time%it,file_id)
-  call dump_field_backup(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),4),"p",&
+  tmp(:,:,:) = u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),4)
+  call dump_field_backup(tmp,"p",&
        time%time,time%dt_old,time%dt_new,time%n1,time%it,file_id)
 
        
@@ -418,7 +409,7 @@ subroutine dump_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   use hdf5
   implicit none
 
-  real(kind=pr),intent(in) :: field(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout) :: field(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real (kind=pr), intent (in) :: time,dt1,dt0
   character(len=*), intent (in) :: dsetname
   integer,intent(in) :: n1,it

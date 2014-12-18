@@ -77,12 +77,12 @@ module vars
   ! Local array bounds with ghost points
   integer,dimension (1:3),save :: ga,gb
   ! Local array bounds for real arrays for all MPI processes
-  integer, dimension (:,:), allocatable, save :: ra_table, rb_table, yz_plane_ranks
+  integer, dimension (:,:), allocatable, save :: ra_table, rb_table
   ! for simplicity, store what decomposition we use 
   character(len=strlen), save :: decomposition
   
-  ! p3dfft only parameters (move to appropraite .f90 file?)
-  integer,save :: mpicommcart
+  ! p3dfft domain decomposition parameters and communicators
+  integer,save :: mpicommcart,mpicommy,mpicommz,mpitaskid,mpitasks
   integer,dimension(2),save :: mpidims,mpicoords,mpicommslab
   ! only root rank has this true:
   logical, save :: root=.false.

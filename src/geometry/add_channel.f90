@@ -7,16 +7,16 @@
 !-------------------------------------------------------------------------------
 subroutine add_channel(mask,mask_color,us)
   use vars
+  use mpi
   implicit none
   
   real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
     
-  integer :: ix,iy,iz
-  real (kind=pr) :: x,y, z, usponge, H_eff, z_chan
-  
-  
+  integer::ix,iy,iz
+  real(kind=pr)::x,y,z,usponge,H_eff,z_chan
+ 
   ! loop over the physical space
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
@@ -79,5 +79,5 @@ subroutine add_channel(mask,mask_color,us)
        enddo
     enddo
   enddo
- 
+
 end subroutine add_channel

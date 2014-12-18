@@ -23,7 +23,7 @@ subroutine cal_nlk(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   ! Update mask function to ensure it is at the right time
   !-----------------------------------------------------------------------------
   if ((iMoving==1).and.(iPenalization==1)) then
-    call create_mask( time%time,mask,mask_color,us, Insect, beams )
+    call create_mask( time%time,mask,mask_color,us, Insect, beams, 0 )
   endif
   
 !   gamma_p=max(1.d0,10.d0-9.d0*time%time/2.0d0)
@@ -37,15 +37,15 @@ subroutine cal_nlk(time,u,nlk,work,mask,mask_color,us,Insect,beams)
     call rhs_acm_spectral(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   case("centered_2nd")
     if (nx==1) then
-      call rhs_acm_2nd_2D(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+      call rhs_acm_2nd_2D(time,u,nlk,work,mask,mask_color,us,Insect,beams,0)
     else 
-      call rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+      call rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams,0)
     endif
   case("centered_4th")
     if (nx==1) then
-      call rhs_acm_4th_2D(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+      call rhs_acm_4th_2D(time,u,nlk,work,mask,mask_color,us,Insect,beams,0)
     else 
-      call rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+      call rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams,0)
     endif
   end select  
   time_rhs = time_rhs + MPI_wtime() - t1
@@ -76,10 +76,11 @@ end subroutine cal_nlk
 !       mask_color: unused
 !       Insect: unused
 !       beam: unused
+!       impmode: implicit solver mode. 0:explicit; 1:viscous term implicit
 ! OUTPUT:
 !       nlk: the right hand side vector
 !-------------------------------------------------------------------------------
-subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams,impmode)
   use vars
   use insect_module
   use solid_model
@@ -89,13 +90,14 @@ subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   implicit none
   type(timetype), intent(in) :: time
   real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  real(kind=pr),intent(out)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
-  real(kind=pr),intent(in)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(in)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(in)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect 
+  integer, intent(in) :: impmode
   
   integer::ix,iy,iz
   real(kind=pr)::ux,uy,uz,vorx,vory,vorz,uxdx,uxdy,uxdz,uydx,uydy,uydz,&
@@ -103,7 +105,7 @@ subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   dxinv,dyinv,dzinv,dx2inv,dy2inv,dz2inv,pdx,pdy,pdz,penalx,penaly,penalz,p,fx
   real(kind=pr)::forcing(1:3)
   
-  call synchronize_ghosts (u)
+  call synchronize_ghosts(u,neq)
   
   ! fetch forcing term used to accelerate the mean flow
   call forcing_term(time,u,forcing)
@@ -147,19 +149,33 @@ subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams)
         penalx = -mask(ix,iy,iz)*(ux-us(ix,iy,iz,1))
         penaly = -mask(ix,iy,iz)*(uy-us(ix,iy,iz,2))
         penalz = -mask(ix,iy,iz)*(uz-us(ix,iy,iz,3))
+       
+        if (impmode==0) then 
+          uxdxdx = (u(ix-1,iy,iz,1)-2.d0*u(ix,iy,iz,1)+u(ix+1,iy,iz,1))*dx2inv 
+          uxdydy = (u(ix,iy-1,iz,1)-2.d0*u(ix,iy,iz,1)+u(ix,iy+1,iz,1))*dy2inv 
+          uxdzdz = (u(ix,iy,iz-1,1)-2.d0*u(ix,iy,iz,1)+u(ix,iy,iz+1,1))*dz2inv 
         
-        uxdxdx = (u(ix-1,iy,iz,1)-2.d0*u(ix,iy,iz,1)+u(ix+1,iy,iz,1))*dx2inv 
-        uxdydy = (u(ix,iy-1,iz,1)-2.d0*u(ix,iy,iz,1)+u(ix,iy+1,iz,1))*dy2inv 
-        uxdzdz = (u(ix,iy,iz-1,1)-2.d0*u(ix,iy,iz,1)+u(ix,iy,iz+1,1))*dz2inv 
+          uydxdx = (u(ix-1,iy,iz,2)-2.d0*u(ix,iy,iz,2)+u(ix+1,iy,iz,2))*dx2inv 
+          uydydy = (u(ix,iy-1,iz,2)-2.d0*u(ix,iy,iz,2)+u(ix,iy+1,iz,2))*dy2inv 
+          uydzdz = (u(ix,iy,iz-1,2)-2.d0*u(ix,iy,iz,2)+u(ix,iy,iz+1,2))*dz2inv 
         
-        uydxdx = (u(ix-1,iy,iz,2)-2.d0*u(ix,iy,iz,2)+u(ix+1,iy,iz,2))*dx2inv 
-        uydydy = (u(ix,iy-1,iz,2)-2.d0*u(ix,iy,iz,2)+u(ix,iy+1,iz,2))*dy2inv 
-        uydzdz = (u(ix,iy,iz-1,2)-2.d0*u(ix,iy,iz,2)+u(ix,iy,iz+1,2))*dz2inv 
-        
-        uzdxdx = (u(ix-1,iy,iz,3)-2.d0*u(ix,iy,iz,3)+u(ix+1,iy,iz,3))*dx2inv 
-        uzdydy = (u(ix,iy-1,iz,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy+1,iz,3))*dy2inv 
-        uzdzdz = (u(ix,iy,iz-1,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy,iz+1,3))*dz2inv 
-        
+          uzdxdx = (u(ix-1,iy,iz,3)-2.d0*u(ix,iy,iz,3)+u(ix+1,iy,iz,3))*dx2inv 
+          uzdydy = (u(ix,iy-1,iz,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy+1,iz,3))*dy2inv 
+          uzdzdz = (u(ix,iy,iz-1,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy,iz+1,3))*dz2inv 
+        else
+          uxdxdx = 0.0d0
+          uxdydy = 0.0d0
+          uxdzdz = 0.0d0
+
+          uydxdx = 0.0d0
+          uydydy = 0.0d0
+          uydzdz = 0.0d0
+
+          uzdxdx = 0.0d0
+          uzdydy = 0.0d0
+          uzdzdz = 0.0d0
+        endif
+
         nlk(ix,iy,iz,1) = uy*vorz -uz*vory - pdx + nu*(uxdxdx+uxdydy+uxdzdz) + penalx + forcing(1)
         nlk(ix,iy,iz,2) = uz*vorx -ux*vorz - pdy + nu*(uydxdx+uydydy+uydzdz) + penaly + forcing(2)
         nlk(ix,iy,iz,3) = ux*vory -uy*vorx - pdz + nu*(uzdxdx+uzdydy+uzdzdz) + penalz + forcing(3)
@@ -195,10 +211,11 @@ end subroutine
 !       mask_color: unused
 !       Insect: unused
 !       beam: unused
+!       impmode: implicit solver mode. 0:explicit; 1: viscous term implicit
 ! OUTPUT:
 !       nlk: the right hand side vector
 !-------------------------------------------------------------------------------
-subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams,impmode)
   use vars
   use insect_module
   use solid_model
@@ -207,13 +224,14 @@ subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   implicit none
   type(timetype), intent(in) :: time
   real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  real(kind=pr),intent(out)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
-  real(kind=pr),intent(in)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(in)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(in)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect 
+  integer, intent(in) :: impmode
   
   integer::ix,iy,iz
   real(kind=pr)::ux,uy,uz,vorx,vory,vorz,uxdx,uxdy,uxdz,uydx,uydy,uydz,&
@@ -223,7 +241,7 @@ subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   real(kind=pr)::forcing(1:3)
   real(kind=pr)::a(-3:+3)
   
-  call synchronize_ghosts (u)
+  call synchronize_ghosts(u,neq)
   
   ! fetch forcing term used to accelerate the mean flow
   call forcing_term(time,u,forcing)
@@ -259,22 +277,6 @@ subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams)
         uy = u(ix,iy,iz,2)
         uz = u(ix,iy,iz,3)
         p  = u(ix,iy,iz,4)
-        
-!         uxdx = (a1*u(ix-2,iy,iz,1)+a2*u(ix-1,iy,iz,1)+a4*u(ix+1,iy,iz,1)+a5*u(ix+2,iy,iz,1))*dxinv        
-!         uxdy = (a1*u(ix,iy-2,iz,1)+a2*u(ix,iy-1,iz,1)+a4*u(ix,iy+1,iz,1)+a5*u(ix,iy+2,iz,1))*dyinv
-!         uxdz = (a1*u(ix,iy,iz-2,1)+a2*u(ix,iy,iz-1,1)+a4*u(ix,iy,iz+1,1)+a5*u(ix,iy,iz+2,1))*dzinv
-!         
-!         uydx = (a1*u(ix-2,iy,iz,2)+a2*u(ix-1,iy,iz,2)+a4*u(ix+1,iy,iz,2)+a5*u(ix+2,iy,iz,2))*dxinv        
-!         uydy = (a1*u(ix,iy-2,iz,2)+a2*u(ix,iy-1,iz,2)+a4*u(ix,iy+1,iz,2)+a5*u(ix,iy+2,iz,2))*dyinv
-!         uydz = (a1*u(ix,iy,iz-2,2)+a2*u(ix,iy,iz-1,2)+a4*u(ix,iy,iz+1,2)+a5*u(ix,iy,iz+2,2))*dzinv
-!         
-!         uzdx = (a1*u(ix-2,iy,iz,3)+a2*u(ix-1,iy,iz,3)+a4*u(ix+1,iy,iz,3)+a5*u(ix+2,iy,iz,3))*dxinv        
-!         uzdy = (a1*u(ix,iy-2,iz,3)+a2*u(ix,iy-1,iz,3)+a4*u(ix,iy+1,iz,3)+a5*u(ix,iy+2,iz,3))*dyinv
-!         uzdz = (a1*u(ix,iy,iz-2,3)+a2*u(ix,iy,iz-1,3)+a4*u(ix,iy,iz+1,3)+a5*u(ix,iy,iz+2,3))*dzinv
-!         
-!         pdx = (a1*u(ix-2,iy,iz,4)+a2*u(ix-1,iy,iz,4)+a4*u(ix+1,iy,iz,4)+a5*u(ix+2,iy,iz,4))*dxinv        
-!         pdy = (a1*u(ix,iy-2,iz,4)+a2*u(ix,iy-1,iz,4)+a4*u(ix,iy+1,iz,4)+a5*u(ix,iy+2,iz,4))*dyinv
-!         pdz = (a1*u(ix,iy,iz-2,4)+a2*u(ix,iy,iz-1,4)+a4*u(ix,iy,iz+1,4)+a5*u(ix,iy,iz+2,4))*dzinv
         
         uxdx = (a(-3)*u(ix-3,iy,iz,1)+a(-2)*u(ix-2,iy,iz,1)+a(-1)*u(ix-1,iy,iz,1)+a(0)*u(ix,iy,iz,1)&
                +a(+3)*u(ix+3,iy,iz,1)+a(+2)*u(ix+2,iy,iz,1)+a(+1)*u(ix+1,iy,iz,1))*dxinv
@@ -315,26 +317,40 @@ subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams)
         penalz = -mask(ix,iy,iz)*(uz-us(ix,iy,iz,3))
         
         ! second derivatives
-        uxdxdx = (b1*u(ix-2,iy,iz,1)+b2*u(ix-1,iy,iz,1)+b3*u(ix,iy,iz,1)&
-                 +b4*u(ix+1,iy,iz,1)+b5*u(ix+2,iy,iz,1))*dx2inv   
-        uxdydy = (b1*u(ix,iy-2,iz,1)+b2*u(ix,iy-1,iz,1)+b3*u(ix,iy,iz,1)&
-                 +b4*u(ix,iy+1,iz,1)+b5*u(ix,iy+2,iz,1))*dy2inv   
-        uxdzdz = (b1*u(ix,iy,iz-2,1)+b2*u(ix,iy,iz-1,1)+b3*u(ix,iy,iz,1)&
-                 +b4*u(ix,iy,iz+1,1)+b5*u(ix,iy,iz+2,1))*dz2inv   
+        if (impmode==0) then
+          uxdxdx = (b1*u(ix-2,iy,iz,1)+b2*u(ix-1,iy,iz,1)+b3*u(ix,iy,iz,1)&
+                   +b4*u(ix+1,iy,iz,1)+b5*u(ix+2,iy,iz,1))*dx2inv   
+          uxdydy = (b1*u(ix,iy-2,iz,1)+b2*u(ix,iy-1,iz,1)+b3*u(ix,iy,iz,1)&
+                   +b4*u(ix,iy+1,iz,1)+b5*u(ix,iy+2,iz,1))*dy2inv   
+          uxdzdz = (b1*u(ix,iy,iz-2,1)+b2*u(ix,iy,iz-1,1)+b3*u(ix,iy,iz,1)&
+                   +b4*u(ix,iy,iz+1,1)+b5*u(ix,iy,iz+2,1))*dz2inv   
         
-        uydxdx = (b1*u(ix-2,iy,iz,2)+b2*u(ix-1,iy,iz,2)+b3*u(ix,iy,iz,2)&
-                 +b4*u(ix+1,iy,iz,2)+b5*u(ix+2,iy,iz,2))*dx2inv   
-        uydydy = (b1*u(ix,iy-2,iz,2)+b2*u(ix,iy-1,iz,2)+b3*u(ix,iy,iz,2)&
-                 +b4*u(ix,iy+1,iz,2)+b5*u(ix,iy+2,iz,2))*dy2inv   
-        uydzdz = (b1*u(ix,iy,iz-2,2)+b2*u(ix,iy,iz-1,2)+b3*u(ix,iy,iz,2)&
-                 +b4*u(ix,iy,iz+1,2)+b5*u(ix,iy,iz+2,2))*dz2inv   
+          uydxdx = (b1*u(ix-2,iy,iz,2)+b2*u(ix-1,iy,iz,2)+b3*u(ix,iy,iz,2)&
+                   +b4*u(ix+1,iy,iz,2)+b5*u(ix+2,iy,iz,2))*dx2inv   
+          uydydy = (b1*u(ix,iy-2,iz,2)+b2*u(ix,iy-1,iz,2)+b3*u(ix,iy,iz,2)&
+                   +b4*u(ix,iy+1,iz,2)+b5*u(ix,iy+2,iz,2))*dy2inv   
+          uydzdz = (b1*u(ix,iy,iz-2,2)+b2*u(ix,iy,iz-1,2)+b3*u(ix,iy,iz,2)&
+                   +b4*u(ix,iy,iz+1,2)+b5*u(ix,iy,iz+2,2))*dz2inv   
         
-        uzdxdx = (b1*u(ix-2,iy,iz,3)+b2*u(ix-1,iy,iz,3)+b3*u(ix,iy,iz,3)&
-                 +b4*u(ix+1,iy,iz,3)+b5*u(ix+2,iy,iz,3))*dx2inv   
-        uzdydy = (b1*u(ix,iy-2,iz,3)+b2*u(ix,iy-1,iz,3)+b3*u(ix,iy,iz,3)&
-                 +b4*u(ix,iy+1,iz,3)+b5*u(ix,iy+2,iz,3))*dy2inv   
-        uzdzdz = (b1*u(ix,iy,iz-2,3)+b2*u(ix,iy,iz-1,3)+b3*u(ix,iy,iz,3)&
-                 +b4*u(ix,iy,iz+1,3)+b5*u(ix,iy,iz+2,3))*dz2inv   
+          uzdxdx = (b1*u(ix-2,iy,iz,3)+b2*u(ix-1,iy,iz,3)+b3*u(ix,iy,iz,3)&
+                   +b4*u(ix+1,iy,iz,3)+b5*u(ix+2,iy,iz,3))*dx2inv   
+          uzdydy = (b1*u(ix,iy-2,iz,3)+b2*u(ix,iy-1,iz,3)+b3*u(ix,iy,iz,3)&
+                   +b4*u(ix,iy+1,iz,3)+b5*u(ix,iy+2,iz,3))*dy2inv   
+          uzdzdz = (b1*u(ix,iy,iz-2,3)+b2*u(ix,iy,iz-1,3)+b3*u(ix,iy,iz,3)&
+                   +b4*u(ix,iy,iz+1,3)+b5*u(ix,iy,iz+2,3))*dz2inv   
+        else
+          uxdxdx = 0.0d0
+          uxdydy = 0.0d0
+          uxdzdz = 0.0d0
+
+          uydxdx = 0.0d0
+          uydydy = 0.0d0
+          uydzdz = 0.0d0
+
+          uzdxdx = 0.0d0
+          uzdydy = 0.0d0
+          uzdzdz = 0.0d0
+        endif
         
         nlk(ix,iy,iz,1) = uy*vorz -uz*vory - pdx + nu*(uxdxdx+uxdydy+uxdzdz) + penalx + forcing(1)
         nlk(ix,iy,iz,2) = uz*vorx -ux*vorz - pdy + nu*(uydxdx+uydydy+uydzdz) + penaly + forcing(2)
@@ -370,10 +386,11 @@ end subroutine
 !       mask_color: unused
 !       Insect: unused
 !       beam: unused
+!       impmode: implicit solver mode. 0:explicit; 1: viscous term implicit
 ! OUTPUT:
 !       nlk: the right hand side vector
 !-------------------------------------------------------------------------------
-subroutine rhs_acm_2nd_2D(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+subroutine rhs_acm_2nd_2D(time,u,nlk,work,mask,mask_color,us,Insect,beams,impmode)
   use vars
   use insect_module
   use solid_model
@@ -383,21 +400,22 @@ subroutine rhs_acm_2nd_2D(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   implicit none
   type(timetype), intent(in) :: time
   real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  real(kind=pr),intent(out)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
-  real(kind=pr),intent(in)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(in)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(in)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect 
-  
+  integer,intent(in) :: impmode 
+ 
   integer::ix,iy,iz
   real(kind=pr)::uy,uz,vorx,uydy,uydz,&
   uzdy,uzdz,uydydy,uydzdz,uzdydy,uzdzdz,&
   dyinv,dzinv,dy2inv,dz2inv,pdy,pdz,penaly,penalz,p,fx
   real(kind=pr)::forcing(1:3)
   
-  call synchronize_ghosts (u)
+  call synchronize_ghosts(u,neq)
   
   ! fetch forcing term used to accelerate the mean flow
   call forcing_term(time,u,forcing)
@@ -429,13 +447,21 @@ subroutine rhs_acm_2nd_2D(time,u,nlk,work,mask,mask_color,us,Insect,beams)
       
       penaly = -mask(ix,iy,iz)*(uy-us(ix,iy,iz,2))
       penalz = -mask(ix,iy,iz)*(uz-us(ix,iy,iz,3))
+ 
+      if (impmode==0) then     
+        uydydy = (u(ix,iy-1,iz,2)-2.d0*u(ix,iy,iz,2)+u(ix,iy+1,iz,2))*dy2inv 
+        uydzdz = (u(ix,iy,iz-1,2)-2.d0*u(ix,iy,iz,2)+u(ix,iy,iz+1,2))*dz2inv 
       
-      uydydy = (u(ix,iy-1,iz,2)-2.d0*u(ix,iy,iz,2)+u(ix,iy+1,iz,2))*dy2inv 
-      uydzdz = (u(ix,iy,iz-1,2)-2.d0*u(ix,iy,iz,2)+u(ix,iy,iz+1,2))*dz2inv 
-      
-      uzdydy = (u(ix,iy-1,iz,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy+1,iz,3))*dy2inv 
-      uzdzdz = (u(ix,iy,iz-1,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy,iz+1,3))*dz2inv 
-      
+        uzdydy = (u(ix,iy-1,iz,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy+1,iz,3))*dy2inv 
+        uzdzdz = (u(ix,iy,iz-1,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy,iz+1,3))*dz2inv 
+      else
+        uydydy = 0.0d0
+        uydzdz = 0.0d0
+
+        uzdydy = 0.0d0
+        uzdzdz = 0.0d0
+      endif
+
       nlk(ix,iy,iz,1) = 0.d0
       nlk(ix,iy,iz,2) = +uz*vorx -pdy + nu*(uydydy+uydzdz) + penaly + forcing(2)
       nlk(ix,iy,iz,3) = -uy*vorx -pdz + nu*(uzdydy+uzdzdz) + penalz + forcing(3)
@@ -470,10 +496,11 @@ end subroutine
 !       mask_color: unused
 !       Insect: unused
 !       beam: unused
+!       impmode: implicit solver mode. 0:explicit; 1: viscous term implicit
 ! OUTPUT:
 !       nlk: the right hand side vector
 !-------------------------------------------------------------------------------
-subroutine rhs_acm_4th_2d(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+subroutine rhs_acm_4th_2d(time,u,nlk,work,mask,mask_color,us,Insect,beams,impmode)
   use vars
   use insect_module
   use solid_model
@@ -482,13 +509,14 @@ subroutine rhs_acm_4th_2d(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   implicit none
   type(timetype), intent(in) :: time
   real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  real(kind=pr),intent(out)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
-  real(kind=pr),intent(in)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(in)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(in)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect 
+  integer, intent(in) :: impmode
   
   integer::ix,iy,iz
   real(kind=pr)::uy,uz,vorx,uydy,uydz,&
@@ -498,7 +526,7 @@ subroutine rhs_acm_4th_2d(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   real(kind=pr)::forcing(1:3)
   real(kind=pr)::a(-3:+3)
   
-  call synchronize_ghosts (u)
+  call synchronize_ghosts(u,neq)
   
   ! fetch forcing term used to accelerate the mean flow
   call forcing_term(time,u,forcing)
@@ -556,15 +584,23 @@ subroutine rhs_acm_4th_2d(time,u,nlk,work,mask,mask_color,us,Insect,beams)
       penalz = -mask(ix,iy,iz)*(uz-us(ix,iy,iz,3))
       
       ! second derivatives
-      uydydy = (b1*u(ix,iy-2,iz,2)+b2*u(ix,iy-1,iz,2)+b3*u(ix,iy,iz,2)&
-               +b4*u(ix,iy+1,iz,2)+b5*u(ix,iy+2,iz,2))*dy2inv   
-      uydzdz = (b1*u(ix,iy,iz-2,2)+b2*u(ix,iy,iz-1,2)+b3*u(ix,iy,iz,2)&
-               +b4*u(ix,iy,iz+1,2)+b5*u(ix,iy,iz+2,2))*dz2inv   
+      if (impmode==0) then
+        uydydy = (b1*u(ix,iy-2,iz,2)+b2*u(ix,iy-1,iz,2)+b3*u(ix,iy,iz,2)&
+                 +b4*u(ix,iy+1,iz,2)+b5*u(ix,iy+2,iz,2))*dy2inv   
+        uydzdz = (b1*u(ix,iy,iz-2,2)+b2*u(ix,iy,iz-1,2)+b3*u(ix,iy,iz,2)&
+                 +b4*u(ix,iy,iz+1,2)+b5*u(ix,iy,iz+2,2))*dz2inv   
+  
+        uzdydy = (b1*u(ix,iy-2,iz,3)+b2*u(ix,iy-1,iz,3)+b3*u(ix,iy,iz,3)&
+                 +b4*u(ix,iy+1,iz,3)+b5*u(ix,iy+2,iz,3))*dy2inv   
+        uzdzdz = (b1*u(ix,iy,iz-2,3)+b2*u(ix,iy,iz-1,3)+b3*u(ix,iy,iz,3)&
+                 +b4*u(ix,iy,iz+1,3)+b5*u(ix,iy,iz+2,3))*dz2inv   
+      else
+        uydydy = 0.0d0
+        uydzdz = 0.0d0
 
-      uzdydy = (b1*u(ix,iy-2,iz,3)+b2*u(ix,iy-1,iz,3)+b3*u(ix,iy,iz,3)&
-               +b4*u(ix,iy+1,iz,3)+b5*u(ix,iy+2,iz,3))*dy2inv   
-      uzdzdz = (b1*u(ix,iy,iz-2,3)+b2*u(ix,iy,iz-1,3)+b3*u(ix,iy,iz,3)&
-               +b4*u(ix,iy,iz+1,3)+b5*u(ix,iy,iz+2,3))*dz2inv   
+        uzdydy = 0.0d0
+        uzdzdz = 0.0d0
+      endif
       
       nlk(ix,iy,iz,1) = 0.d0
       nlk(ix,iy,iz,2) = +uz*vorx -pdy + nu*(uydydy+uydzdz) + penaly + forcing(2)
@@ -643,10 +679,10 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,workc)
   use solid_model
   implicit none
 
-  real(kind=pr),intent (in) :: time
-  integer, intent(in) :: it
+  real(kind=pr),intent (inout) :: time
+  integer, intent(inout) :: it
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(out)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq) 
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
@@ -743,8 +779,8 @@ subroutine forcing_term(time,u,forcing)
   
   implicit none
   type(timetype),intent(in):: time
-  real(kind=pr),intent(in) :: u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  real(kind=pr),intent(out):: forcing(1:3)
+  real(kind=pr),intent(inout) :: u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout):: forcing(1:3)
   
   real(kind=pr) :: ux_mean,uy_mean,uz_mean
   

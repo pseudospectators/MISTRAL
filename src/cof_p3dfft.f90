@@ -72,6 +72,40 @@ subroutine ifft3(outx,ink)
     call cofitxyz(ink(:,:,:,3),outx(:,:,:,3))    
 end subroutine ifft3
 
+!-------------------------------------------------------------------------------
+
+subroutine setup_cart_groups
+  ! Setup 1d communicators
+  use mpi
+  use vars
+  use p3dfft
+
+  implicit none
+  integer :: mpicolor,mpikey,mpicode
+  integer :: mpicommtmp1,mpicommtmp2
+  logical :: mpiperiods(2),periods(1),reorder
+  integer :: one=1,two=2,dims(1) ! Required for MPI_CART_GET, MPI_CART_CREATE in openmpi
+  ! Set parameters
+  periods(1)=.true. ! This should be an array - if not, openmpi fails
+  reorder=.false.
+  ! Get Cartesian topology information
+  call MPI_CART_GET(mpicommcart,two,mpidims,mpiperiods,mpicoords,mpicode)
+  ! Communicator for line in y direction
+  mpicolor = mpicoords(2) 
+  mpikey = mpicoords(1)
+  call MPI_COMM_SPLIT (mpicommcart,mpicolor,mpikey,mpicommtmp1,mpicode)
+  dims(1) = mpidims(1)
+  call MPI_CART_CREATE(mpicommtmp1,one,dims,periods,reorder,mpicommz,mpicode)
+  ! Communicator for line in z direction
+  mpicolor = mpicoords(1) 
+  mpikey = mpicoords(2)
+  call MPI_COMM_SPLIT (mpicommcart,mpicolor,mpikey,mpicommtmp2,mpicode)
+  dims(1) = mpidims(2)
+  call MPI_CART_CREATE(mpicommtmp2,one,dims,periods,reorder,mpicommy,mpicode)
+end subroutine setup_cart_groups
+
+!-------------------------------------------------------------------------------
+
 subroutine fft_initialize
   !-----------------------------------------------------------------------------
   !     Allocate memory and initialize FFT
@@ -94,7 +128,6 @@ subroutine fft_initialize
   integer,dimension(1:3) :: ka,kb,ks,kat,kbt,kst
   logical,dimension(2) :: subcart
   real(kind=pr),dimension(:,:),allocatable :: f,ft
-  integer, dimension(:,:), allocatable :: yz_plane_local
 
   !-----------------------------------------------------------------------------
   !------ Three-dimensional FFT                                           ------
@@ -132,6 +165,9 @@ subroutine fft_initialize
   !-- Initialize P3DFFT
   call p3dfft_setup(mpidims,nx,ny,nz,MPI_COMM_WORLD, overwrite=.false.)
 
+  !-- Get Cartesian topology info
+  call p3dfft_get_mpi_info(mpitaskid,mpitasks,mpicommcart)
+
   !-- Get local sizes
   call p3dfft_get_dims(ra,rb,rs,1)  ! real blocks
   call p3dfft_get_dims(ca,cb,cs,2)  ! complex blocks
@@ -159,32 +195,12 @@ subroutine fft_initialize
   
   !-- Allocate domain partitioning tables and gather sizes from all processes 
   !-- (only for real arrays)
+  ! TODO: These tables are currently not used for communication between subdomains,
+  ! but may be still useful for development/debugging purposes.
   allocate ( ra_table(1:3,0:mpisize-1), rb_table(1:3,0:mpisize-1) )
   call MPI_ALLGATHER (ra, 3, MPI_INTEGER, ra_table, 3, MPI_INTEGER, MPI_COMM_WORLD, mpicode)
   call MPI_ALLGATHER (rb, 3, MPI_INTEGER, rb_table, 3, MPI_INTEGER, MPI_COMM_WORLD, mpicode)
 
-  !-- create a 2D array of size ny*nz that holds the mpirank of every point
-  !-- in the y-z plane
-  allocate (yz_plane_ranks(0:ny-1,0:nz-1) )
-  allocate (yz_plane_local(0:ny-1,0:nz-1) )
-  
-  yz_plane_local = 0
-  yz_plane_local( ra(2):rb(2), ra(3):rb(3) ) = mpirank
-  
-  call MPI_ALLREDUCE ( yz_plane_local,yz_plane_ranks,ny*nz,&
-                      MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,mpicode)
-  
-  !-- save the 2D decomposition to disk
-  if (mpirank==0) then
-    open(14,file='decomposition',status='replace')
-    do n=0,ny-1
-      do L=0,nz-1
-        write(14,'(i4.4,1x)',advance='no') yz_plane_ranks(n,L)
-      enddo
-      write(14,'(A)',advance='yes') " "
-    enddo
-    close(14)
-  endif
 end subroutine fft_initialize
 
 
@@ -207,8 +223,6 @@ subroutine fft_free
      call dfftw_destroy_plan(Desc_Handle_1D_f(j))
      call dfftw_destroy_plan(Desc_Handle_1D_b(j))
   enddo
-
-  deallocate(yz_plane_ranks)
 
 end subroutine fft_free
 
