@@ -93,10 +93,10 @@ module vars
   real(kind=pr),save :: time_mask
   real(kind=pr),save :: time_vor, time_p
   real(kind=pr),save :: time_bckp, time_save, time_total, time_fluid
-  real(kind=pr),save :: time_insect_body, time_scalar
+  real(kind=pr),save :: time_insect_body
   real(kind=pr),save :: time_insect_wings, time_insect_vel
   real(kind=pr),save :: time_solid, time_drag, time_surf, time_LAPACK
-  real(kind=pr),save :: time_hdf5, time_integrals, time_rhs, time_nlk_scalar
+  real(kind=pr),save :: time_hdf5, time_integrals, time_rhs
 
   ! Variables set via the parameters file
   real(kind=pr),save :: length 
@@ -169,16 +169,7 @@ module vars
   character(len=strlen),save :: iMeanFlowStartupConditioner
   real(kind=pr) :: tau_meanflow, T_release_meanflow
   
-  ! parameters for passive scalar advection
-  integer, save :: use_passive_scalar
-  integer, save :: n_scalars
-  real(kind=pr),save :: kappa
-  character(len=strlen),save :: inicond_scalar, stop_on_fail
-  character(len=strlen),save :: source_term
-  real(kind=pr), save :: eps_scalar
-  logical, save :: compute_scalar
-  real(kind=pr),save :: source_xmin,source_xmax,source_ymin,source_ymax,&
-    source_zmin,source_zmax
+
 
   ! solid model main switch
   character(len=strlen),save :: use_solid_model

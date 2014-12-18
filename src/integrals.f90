@@ -1,10 +1,5 @@
 !-------------------------------------------------------------------------------
 ! Wrapper for writing integral quantities to file
-! Input:
-!       uk: the neq-component vector of the unknowns in F-space
-! Input/Output:
-!       u, vort: two 3D-work arrays (free on entry and exit)
-!       nlk: 3D complex work array (free on entry and exit)
 ! Output:
 !       all output is done directly to hard disk in the *.t files
 !-------------------------------------------------------------------------------
@@ -34,6 +29,7 @@ subroutine write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   real(kind=pr) :: dissf, dissxf, dissyf, disszf
   integer :: ix,iy,iz,mpicode
   real(kind=pr) :: t1
+  
   t1=MPI_wtime()
   
   !-----------------------------------------------------------------------------
@@ -130,24 +126,8 @@ subroutine write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
      write (14,'(4(es15.8,1x))') time%time, uxmean, uymean, uzmean
      close (14)
   endif
-!   
-!   !-----------------------------------------------------------------------------
-!   ! integral of scalar concentration
-!   !-----------------------------------------------------------------------------
-!   if ((use_passive_scalar==1).and.(compute_scalar)) then
-!     call ifft( ink=uk(:,:,:,4), outx=work1)
-!     work1 = work1*(1.d0-mask*eps)
-!     conc = sum(work1)*dx*dy*dz
-!     call MPI_REDUCE(conc,concentration,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-!          MPI_COMM_WORLD,mpicode)
-!          
-!     if (mpirank == 0) then
-!       open  (14,file='scalar.t',status='unknown',position='append')
-!       write (14,'(2(es15.8,1x))') time, concentration
-!       close (14)
-!     endif
-!   endif
-!   
+
+  
   !-----------------------------------------------------------------------------
   ! mask volume
   !-----------------------------------------------------------------------------

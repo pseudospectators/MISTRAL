@@ -186,30 +186,6 @@ subroutine get_params(paramsfile,Insect)
   call get_params_solid( PARAMS, i )
 
   !-----------------------------------------------------------------------------
-  ! passive scalar section
-  !-----------------------------------------------------------------------------
-  call param_int(PARAMS,i,"PassiveScalar","use_passive_scalar",&
-       use_passive_scalar,0)
-  call param_int(PARAMS,i,"PassiveScalar","n_scalars",&
-       n_scalars,0)
-  call param_dbl(PARAMS,i,"PassiveScalar","kappa",&
-       kappa, 0.1d0)   
-  call param_dbl(PARAMS,i,"PassiveScalar","eps_scalar",&
-       eps_scalar, eps)       
-  call param_str(PARAMS,i,"PassiveScalar","inicond_scalar",&
-       inicond_scalar,"right_left_discontinuous") 
-  call param_str(PARAMS,i,"PassiveScalar","stop_on_fail",&
-       stop_on_fail,"no")
-  call param_str(PARAMS,i,"PassiveScalar","source_term",&
-       source_term,"no")
-  call param_dbl(PARAMS,i,"PassiveScalar","source_xmin",source_xmin,0.d0)
-  call param_dbl(PARAMS,i,"PassiveScalar","source_xmax",source_xmax,0.d0)
-  call param_dbl(PARAMS,i,"PassiveScalar","source_ymin",source_ymin,0.d0)
-  call param_dbl(PARAMS,i,"PassiveScalar","source_ymax",source_ymax,0.d0)
-  call param_dbl(PARAMS,i,"PassiveScalar","source_zmin",source_zmin,0.d0)
-  call param_dbl(PARAMS,i,"PassiveScalar","source_zmax",source_zmax,0.d0)
-
-  !-----------------------------------------------------------------------------
   ! DONE..
   !-----------------------------------------------------------------------------
   if (mpirank==0) then

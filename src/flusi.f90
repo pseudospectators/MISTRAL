@@ -89,9 +89,9 @@ subroutine Start_Simulation()
   time_fluid=0.d0
   time_bckp=0.d0; time_save=0.d0; time_total=MPI_wtime()
   time_insect_body=0.d0; 
-  time_insect_wings=0.d0; time_insect_vel=0.d0; time_scalar=0.d0
+  time_insect_wings=0.d0; time_insect_vel=0.d0
   time_solid=0.d0; time_drag=0.d0; time_surf=0.d0; time_LAPACK=0.d0
-  time_hdf5=0.d0; time_integrals=0.d0; time_rhs=0.d0; time_nlk_scalar=0.d0
+  time_hdf5=0.d0; time_integrals=0.d0; time_rhs=0.d0
   
   if (root) then
      write(*,'(A)') '--------------------------------------'
@@ -169,14 +169,6 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   ! Allocate memory:
   !-----------------------------------------------------------------------------
-!   ! reserve additional space for scalars?
-!   if (use_passive_scalar==1) then
-!     ! add n_scalars to number of equations. Note the difference between neq and nd
-!     neq = neq + n_scalars 
-!     ! this logical "activates" the scalar. if, for example, a NaN in the scalar occurs,
-!     ! it is set to false and the scalar is skipped, since the fluid can still be okay
-!     compute_scalar = .true.
-!   endif
 
   ! size (in bytes) of one field  
   mem_field = dble(nx)*dble(ny)*dble(nz)*8.d0
@@ -211,7 +203,7 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   if (mpirank==0) then
     write(*,'(80("-"))')
-    write(*,'("Allocated ",i1," real and ",i1," complex work arrays")') nrw,0
+    write(*,'("Allocated ",i1," real work arrays")') nrw
     write(*,'("FLUSI allocated ",f7.1,"MB (",f5.1,"GB) of memory in total")')&
     memory/(1.0d6),memory/(1.0d9)
     write(*,'("which is ",f7.1,"MB (",f4.1,"GB) per CPU")') &
@@ -400,7 +392,6 @@ subroutine initialize_time_series_files()
 
   call init_empty_file('iterations.t')
   call init_empty_file('mask_volume.t')
-  if (use_passive_scalar==1) call init_empty_file('scalar.t')
 end subroutine
 
 

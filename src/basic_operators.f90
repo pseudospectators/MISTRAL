@@ -14,7 +14,7 @@ module basic_operators
 
   !-- interface for curl operators
   interface curl
-    module procedure curl, curl_inplace, curl3, curl_x
+    module procedure curl_x
   end interface
 
   !-- interface for maxima of fields
@@ -29,7 +29,7 @@ module basic_operators
   
   ! divergence (in x- or k- space)
   interface divergence
-    module procedure divergence_k, divergence_x
+    module procedure divergence_x
   end interface
  
  
@@ -37,272 +37,6 @@ module basic_operators
  contains
 !!!!!!!!!!! 
  
-subroutine dealias(fk1,fk2,fk3) 
-  use vars
-  use mpi
-  use p3dfft_wrapper
-  implicit none
-
-  integer :: ix,iy,iz
-  complex(kind=pr),intent(inout) :: fk1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(inout) :: fk2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(inout) :: fk3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  real(kind=pr) :: kx2,ky2,kz2,kxt2,kyt2,kzt2,kx_trunc,ky_trunc,kz_trunc
-
-  kx_trunc=(2.d0/3.d0)*dble(nx/2-1)
-  ky_trunc=(2.d0/3.d0)*dble(ny/2-1)
-  kz_trunc=(2.d0/3.d0)*dble(nz/2-1)  
-
-  do iz=ca(1),cb(1)
-     kz2 =wave_z(iz)**2
-     kzt2=(wave_z(iz)/scalez) / kz_trunc
-     kzt2=kzt2*kzt2
-     
-     do iy=ca(2),cb(2)
-        ky2=wave_y(iy)**2
-        kyt2=(wave_y(iy)/scaley) / ky_trunc
-        kyt2=kyt2*kyt2
-
-        do ix=ca(3),cb(3)
-           kx2=wave_x(ix)**2
-           kxt2=(wave_x(ix)/scalex) / kx_trunc
-           kxt2=kxt2*kxt2
-
-           if ((kxt2 + kyt2 + kzt2  .ge. 1.d0)) then
-              fk1(iz,iy,ix)=0.d0
-              fk2(iz,iy,ix)=0.d0
-              fk3(iz,iy,ix)=0.d0
-           endif
-
-        enddo
-     enddo
-  enddo
-
-end subroutine dealias
-
-subroutine dealias1(fk1)
-  use vars
-  use mpi
-  use p3dfft_wrapper
-  implicit none
-
-  integer :: ix,iy,iz
-  complex(kind=pr),intent(inout) :: fk1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  real(kind=pr) :: kx2,ky2,kz2,kxt2,kyt2,kzt2,kx_trunc,ky_trunc,kz_trunc
-
-  kx_trunc=(2.d0/3.d0)*dble(nx/2-1)
-  ky_trunc=(2.d0/3.d0)*dble(ny/2-1)
-  kz_trunc=(2.d0/3.d0)*dble(nz/2-1)  
-
-  do iz=ca(1),cb(1)
-     kz2 =wave_z(iz)**2
-     kzt2=(wave_z(iz)/scalez) / kz_trunc
-     kzt2=kzt2*kzt2
-     
-     do iy=ca(2),cb(2)
-        ky2=wave_y(iy)**2
-        kyt2=(wave_y(iy)/scaley) / ky_trunc
-        kyt2=kyt2*kyt2
-
-        do ix=ca(3),cb(3)
-           kx2=wave_x(ix)**2
-           kxt2=(wave_x(ix)/scalex) / kx_trunc
-           kxt2=kxt2*kxt2
-
-           if ((kxt2 + kyt2 + kzt2  .ge. 1.d0)) then
-              fk1(iz,iy,ix)=0.d0
-           endif
-
-        enddo
-     enddo
-  enddo
-
-end subroutine dealias1
- 
- 
- 
-! Given three components of an input fields in Fourier space, compute
-! the curl in physical space.  Arrays are 3-dimensional.
-subroutine curl(out1,out2,out3,in1,in2,in3)
-  use p3dfft_wrapper
-  implicit none
-
-  ! input field in Fourier space
-  complex(kind=pr),intent(inout)::in1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(inout)::in2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(inout)::in3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  ! output field in Fourier space
-  complex(kind=pr),intent(inout)::out1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(inout)::out2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(inout)::out3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-
-  integer :: ix,iy,iz
-  real(kind=pr) :: kx,ky,kz
-  complex(kind=pr) :: imag   ! imaginary unit
-
-  imag = dcmplx(0.d0,1.d0)
-  
-  ! Compute curl of given field in Fourier space:
-  do iz=ca(1),cb(1)
-     kz=wave_z(iz)
-     do iy=ca(2),cb(2)
-        ky=wave_y(iy)
-        do ix=ca(3),cb(3)
-           kx=wave_x(ix)
-
-           out1(iz,iy,ix)=imag*(ky*in3(iz,iy,ix) -kz*in2(iz,iy,ix))
-           out2(iz,iy,ix)=imag*(kz*in1(iz,iy,ix) -kx*in3(iz,iy,ix))
-           out3(iz,iy,ix)=imag*(kx*in2(iz,iy,ix) -ky*in1(iz,iy,ix))
-        enddo
-     enddo
-  enddo
-end subroutine curl 
-
-
-! Given three components of a fields in Fourier space, compute the
-! curl in physical space.  Arrays are 3-dimensional.
-subroutine curl_inplace(fx,fy,fz)
-  use p3dfft_wrapper
-  implicit none
-
-  ! Field in Fourier space
-  complex(kind=pr),intent(inout)::fx(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(inout)::fy(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(inout)::fz(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-
-  complex(kind=pr) :: t1,t2,t3 ! temporary loop variables
-  integer :: ix,iy,iz
-  real(kind=pr) :: kx,ky,kz
-  complex(kind=pr) :: imag   ! imaginary unit
-
-  imag = dcmplx(0.d0,1.d0)
-  
-  ! Compute curl of given field in Fourier space:
-  do iz=ca(1),cb(1)
-     kz=wave_z(iz)
-     do iy=ca(2),cb(2)
-        ky=wave_y(iy)
-        do ix=ca(3),cb(3)
-           kx=wave_x(ix)
-           
-           t1=fx(iz,iy,ix)
-           t2=fy(iz,iy,ix)
-           t3=fz(iz,iy,ix)
-
-           fx(iz,iy,ix)=imag*(ky*t3 - kz*t2)
-           fy(iz,iy,ix)=imag*(kz*t1 - kx*t3)
-           fz(iz,iy,ix)=imag*(kx*t2 - ky*t1)
-        enddo
-     enddo
-  enddo
-end subroutine curl_inplace
-
-
-! Given three components of an input fields in Fourier space, compute
-! the curl in physical space.  Arrays are 3-dimensional.
-subroutine curl3_inplace(fk)
-  use p3dfft_wrapper
-  implicit none
-
-  ! input/output field in Fourier space
-  complex(kind=pr),intent(inout)::fk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-
-  integer :: ix,iy,iz
-  real(kind=pr) :: kx,ky,kz
-  complex(kind=pr) :: imag   ! imaginary unit
-
-  imag = dcmplx(0.d0,1.d0)
-  
-  ! Compute curl of given field in Fourier space:
-  do iz=ca(1),cb(1)
-     kz=wave_z(iz)
-     do iy=ca(2),cb(2)
-        ky=wave_y(iy)
-        do ix=ca(3),cb(3)
-           kx=wave_x(ix)
-
-           fk(iz,iy,ix,1)=imag*(ky*fk(iz,iy,ix,3) -kz*fk(iz,iy,ix,2))
-           fk(iz,iy,ix,2)=imag*(kz*fk(iz,iy,ix,1) -kx*fk(iz,iy,ix,3))
-           fk(iz,iy,ix,3)=imag*(kx*fk(iz,iy,ix,2) -ky*fk(iz,iy,ix,1))
-        enddo
-     enddo
-  enddo
-end subroutine curl3_inplace 
-
-
-! Given three components of an input fields in Fourier space, compute
-! the curl in physical space.  Arrays are 3-dimensional. The precision is reduced
-! to second order in space, since this kind of filtering may help in postprocessing
-subroutine curl_2nd (fx,fy,fz)
-  use p3dfft_wrapper
-  implicit none
-
-  ! Field in Fourier space
-  complex(kind=pr),intent(inout)::fx(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(inout)::fy(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(inout)::fz(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-
-  complex(kind=pr) :: t1,t2,t3 ! temporary loop variables
-  integer :: ix,iy,iz
-  real(kind=pr) :: kx,ky,kz
-  complex(kind=pr) :: imag   ! imaginary unit
-
-  imag = dcmplx(0.d0,1.d0)
-  
-  ! Compute curl of given field in Fourier space:
-  do iz=ca(1),cb(1)
-     kz=dsin(dz*wave_z(iz))/ dz ! (reduced to 2nd order)
-     do iy=ca(2),cb(2)
-        ky=dsin(dy*wave_y(iy))/dy ! (reduced to 2nd order)
-        do ix=ca(3),cb(3)
-           kx=dsin(dx*wave_x(ix))/dx ! (reduced to 2nd order)
-           
-           t1=fx(iz,iy,ix)
-           t2=fy(iz,iy,ix)
-           t3=fz(iz,iy,ix)
-
-           fx(iz,iy,ix)=imag*(ky*t3 - kz*t2)
-           fy(iz,iy,ix)=imag*(kz*t1 - kx*t3)
-           fz(iz,iy,ix)=imag*(kx*t2 - ky*t1)
-        enddo
-     enddo
-  enddo
-
-end subroutine curl_2nd
-
-
-! Given three components of an input fields in Fourier space, compute
-! the curl in physical space.  Arrays are 3-dimensional.
-subroutine curl3(ink,outk)
-  use p3dfft_wrapper
-  implicit none
-
-  ! input/output field in Fourier space
-  complex(kind=pr),intent(inout)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-  complex(kind=pr),intent(inout)::outk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-
-  integer :: ix,iy,iz
-  real(kind=pr) :: kx,ky,kz
-  complex(kind=pr) :: imag   ! imaginary unit
-
-  imag = dcmplx(0.d0,1.d0)
-  
-  ! Compute curl of given field in Fourier space:
-  do iz=ca(1),cb(1)
-     kz=wave_z(iz)
-     do iy=ca(2),cb(2)
-        ky=wave_y(iy)
-        do ix=ca(3),cb(3)
-           kx=wave_x(ix)
-
-           outk(iz,iy,ix,1)=imag*(ky*ink(iz,iy,ix,3) -kz*ink(iz,iy,ix,2))
-           outk(iz,iy,ix,2)=imag*(kz*ink(iz,iy,ix,1) -kx*ink(iz,iy,ix,3))
-           outk(iz,iy,ix,3)=imag*(kx*ink(iz,iy,ix,2) -ky*ink(iz,iy,ix,1))
-        enddo
-     enddo
-  enddo
-end subroutine curl3 
-
 
 ! Given three components of an input fields in Fourier space, compute
 ! the curl in physical space.  Arrays are 3-dimensional.
@@ -326,36 +60,6 @@ subroutine curl_x( u, rotu )
   
   
   select case(method)
-  case('spectral')  
-      !-------------------------------------------------------------------------
-      ! compute divergence(u) using spectral derivatives. Note that both input
-      ! and output of this function are in x-space, which requires 3 fft and
-      ! 1 ifft. 
-      !-------------------------------------------------------------------------
-      allocate(ink (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
-      allocate(outk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
-      ! transform input to Fourier space
-      call fft3( inx=u, outk=ink )
-      
-      imag = dcmplx(0.d0,1.d0)
-      ! Compute curl of given field in Fourier space:
-      do iz=ca(1),cb(1)
-        kz=wave_z(iz)
-        do iy=ca(2),cb(2)
-            ky=wave_y(iy)
-            do ix=ca(3),cb(3)
-              kx=wave_x(ix)
-              outk(iz,iy,ix,1)=imag*(ky*ink(iz,iy,ix,3) -kz*ink(iz,iy,ix,2))
-              outk(iz,iy,ix,2)=imag*(kz*ink(iz,iy,ix,1) -kx*ink(iz,iy,ix,3))
-              outk(iz,iy,ix,3)=imag*(kx*ink(iz,iy,ix,2) -ky*ink(iz,iy,ix,1))
-            enddo
-        enddo
-      enddo
-      
-      ! transform output back to x-space
-      call ifft3( ink=outk, outx=rotu(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3) )
-      deallocate(ink,outk)
-      
   case('centered_2nd')
       call synchronize_ghosts( u, 3 )
       !-------------------------------------------------------------------------
@@ -452,37 +156,6 @@ end subroutine curl_x
 
 
 !-------------------------------------------------------------------------------
-! compute divergence of vector valued field (ink, 4D array)
-! and returns it in outk
-!-------------------------------------------------------------------------------
-subroutine divergence_k( ink, outk )
-  use p3dfft_wrapper
-  implicit none
-  ! input vector field in Fourier space
-  complex(kind=pr),intent(inout)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-  ! output scalar field in Fourier space
-  complex(kind=pr),intent(inout)::outk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  
-  integer :: ix,iy,iz
-  real(kind=pr) :: kx,ky,kz
-
-  do iz=ca(1),cb(1)          
-    !-- wavenumber in z-direction
-    kz = wave_z(iz)       
-    do iy=ca(2), cb(2)
-      !-- wavenumber in y-direction
-      ky = wave_y(iy)      
-      do ix=ca(3), cb(3)
-        !-- wavenumber in x-direction
-        kx = wave_x(ix)
-        outk(iz,iy,ix)=kx*ink(iz,iy,ix,1)+ky*ink(iz,iy,ix,2)+kz*ink(iz,iy,ix,3)
-        outk(iz,iy,ix)=dcmplx(0.d0,1.d0)*outk(iz,iy,ix)
-      enddo
-    enddo
-  enddo
-end subroutine divergence_k
-
-!-------------------------------------------------------------------------------
 ! compute the divergence of the input field u and return it in divu
 ! depending on the value of "method", different discretization
 ! is used.
@@ -503,34 +176,6 @@ subroutine divergence_x( u, divu )
   
   
   select case(method)
-  case('spectral')  
-      !-------------------------------------------------------------------------
-      ! compute divergence(u) using spectral derivatives. Note that both input
-      ! and output of this function are in x-space, which requires 3 fft and
-      ! 1 ifft. 
-      !-------------------------------------------------------------------------
-      allocate(ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
-      allocate(outk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
-      ! transform input to Fourier space
-      call fft3( inx=u, outk=ink )
-      do iz=ca(1),cb(1)          
-        !-- wavenumber in z-direction
-        kz = wave_z(iz)       
-        do iy=ca(2), cb(2)
-          !-- wavenumber in y-direction
-          ky = wave_y(iy)      
-          do ix=ca(3), cb(3)
-            !-- wavenumber in x-direction
-            kx = wave_x(ix)
-            outk(iz,iy,ix)=kx*ink(iz,iy,ix,1)+ky*ink(iz,iy,ix,2)+kz*ink(iz,iy,ix,3)
-            outk(iz,iy,ix)=dcmplx(0.d0,1.d0)*outk(iz,iy,ix)
-          enddo
-        enddo
-      enddo
-      ! transform output back to x-space
-      call ifft( ink=outk, outx=divu(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
-      deallocate(ink,outk)
-      
   case('centered_2nd')
       call synchronize_ghosts( u, 3 )
       !-------------------------------------------------------------------------
@@ -609,62 +254,10 @@ end subroutine divergence_x
 
 
 
-! computes laplace(ink) for a scalar valued field and returns it in the same array
-subroutine laplacien_inplace( ink )
-  use p3dfft_wrapper
-  implicit none
-  complex(kind=pr),intent(inout)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  
-  integer :: ix,iy,iz
-  real(kind=pr) :: kx,ky,kz,k2
-
-  do iz=ca(1),cb(1)          
-    !-- wavenumber in z-direction
-    kz = wave_z(iz)
-    do iy=ca(2), cb(2)
-      !-- wavenumber in y-direction
-      ky = wave_y(iy)
-      do ix=ca(3), cb(3)
-        !-- wavenumber in x-direction
-        kx = wave_x(ix)
-        k2 = kx*kx + ky*ky + kz*kz
-        ink(iz,iy,ix) = -k2*ink(iz,iy,ix)
-      enddo
-    enddo
-  enddo
-end subroutine laplacien_inplace
-  
-  
-! computes laplace(ink) for a scalar valued field and returns it in the same array
-! note wavenumbers are reduced to second order accuracy (for the Q-criterion, 
-! the result is nicer if filtered)
-subroutine laplacien_inplace_filtered( ink )
-  use p3dfft_wrapper
-  implicit none
-  complex(kind=pr),intent(inout)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  
-  integer :: ix,iy,iz
-  real(kind=pr) :: kx,ky,kz,k2
-
-  do iz=ca(1),cb(1)          
-    !-- wavenumber in z-direction (reduced to 2nd order)
-    kz = dsin( dz*wave_z(iz) )/ dz
-    do iy=ca(2), cb(2)
-      !-- wavenumber in y-direction  (reduced to 2nd order)
-      ky = dsin( dy*wave_y(iy) )/dy
-      do ix=ca(3), cb(3)
-        !-- wavenumber in x-direction  (reduced to 2nd order)
-        kx = dsin(dx*wave_x(ix))/dx
-        k2 = kx*kx + ky*ky + kz*kz
-        ink(iz,iy,ix) = -k2*ink(iz,iy,ix)
-      enddo
-    enddo
-  enddo
-end subroutine laplacien_inplace_filtered
-
-  
+!------------------------------------------------------------------------------- 
 ! returns the globally largest entry of a given (real) field
 ! only inner points considered
+!-------------------------------------------------------------------------------
 real(kind=pr) function fieldmax( inx )
   use mpi
   use vars
@@ -680,8 +273,9 @@ real(kind=pr) function fieldmax( inx )
   fieldmax = max_global
 end function fieldmax
 
-
+!-------------------------------------------------------------------------------
 ! returns the globally smallest entry of a given (real) field
+!-------------------------------------------------------------------------------
 real(kind=pr) function fieldmin( inx )
   implicit none
   real(kind=pr),intent(inout):: inx(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
@@ -696,8 +290,10 @@ real(kind=pr) function fieldmin( inx )
 end function fieldmin
 
 
+!-------------------------------------------------------------------------------
 ! returns the globally largest entry of a given vector field
 ! (L2-norm)
+!-------------------------------------------------------------------------------
 real(kind=pr) function fieldmaxabs3( inx )
   implicit none
   real(kind=pr),intent(inout) :: inx(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
@@ -723,8 +319,10 @@ real(kind=pr) function fieldmaxabs3( inx )
 end function fieldmaxabs3
 
 
+!-------------------------------------------------------------------------------
 ! returns the globally largest entry of a given vector field
 ! (L2-norm)
+!-------------------------------------------------------------------------------
 real(kind=pr) function fieldmaxabs( inx1, inx2, inx3 )
   implicit none
   real(kind=pr),intent(inout):: inx1(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
