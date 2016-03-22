@@ -49,8 +49,16 @@ endif
 ifeq ($(FC),f77)
 FC = mpif90
 endif
+ifeq ($(FC),sxf90)
+FC = sxmpif90
+endif
 
-
+#SX compiler
+ifeq ($(FC),sxmpif90)
+FFLAGS += -I$(OBJDIR)
+FFLAGS += -R2 -Wf"-pvctl fullmsg" -ftrace -f2003
+PPFLAG =
+else
 
 # GNU compiler
 ifeq ($(shell $(FC) --version 2>&1 | head -n 1 | head -c 3),GNU)
@@ -59,7 +67,7 @@ FFLAGS += -J$(OBJDIR) # specify directory for modules.
 FFLAGS += -Wall # warn for unused and uninitialzied variables 
 #FFLAGS += -Werror # warnings are errors
 FFLAGS += -pedantic 
-PPFLAG= -cpp #preprocessor flag
+PPFLAG = -cpp #preprocessor flag
 # Debug flags for gfortran:
 #FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb
 endif
@@ -67,8 +75,8 @@ endif
 # Intel compiler
 ifort:=$(shell $(FC) --version | head -c 5)
 ifeq ($(ifort),ifort)
-PPFLAG= -fpp #preprocessor flag
-DIFORT= -DIFORT # define the IFORT variable 
+PPFLAG = -fpp #preprocessor flag
+DIFORT = -DIFORT # define the IFORT variable 
 FFLAGS += -module $(OBJDIR) # specify directory for modules.
 FFLAGS += -vec_report0
 #FFLAGS += -mcmodel=medium -i-dynamic  
@@ -81,33 +89,40 @@ endif
 ifeq ($(shell $(FC) -qversion 2>&1 | head -c 3),IBM)
 FFLAGS += -qmoddir=$(OBJDIR)
 FFLAGS += -I$(OBJDIR)
-DIFORT=-WF,-DTURING # this defines the TURING with the IBM compiler
-PPFLAG=-qsuffix=cpp=f90  #preprocessor flag
+DIFORT =-WF,-DTURING # this defines the TURING with the IBM compiler
+PPFLAG =-qsuffix=cpp=f90  #preprocessor flag
+endif
+
 endif
 
 PROGRAMS = mistral
-
-# FFT_ROOT is set in envinroment.
-FFT_LIB = $(FFT_ROOT)/lib
-FFT_INC = $(FFT_ROOT)/include
 
 # HDF_ROOT is set in environment.
 HDF_LIB = $(HDF_ROOT)/lib
 HDF_INC = $(HDF_ROOT)/include
 
 # Linker flags
-LDFLAGS = -L$(P3DFFT_LIB) -L$(FFT_LIB) -lm
-LDFLAGS += $(HDF5_FLAGS) -L$(HDF_LIB) 
+ifeq ($(FC),sxmpif90)
+LDFLAGS += -lblas
+endif
+
+LDFLAGS = 
 ifeq ($(HDF5FLAG),yes)
+LDFLAGS += $(HDF5_FLAGS) -L$(HDF_LIB) 
 LDFLAGS += -lhdf5_fortran -lhdf5
 endif
-LDFLAGS += -lz -ldl
 LDFLAGS += -llapack
+ifeq ($(FC),sxmpif90)
+LDFLAGS += -lblas
+else
+LDFLAGS += -lz -ldl
+endif
+LDFLAGS += -lm
+
 ifeq ($(HDF5FLAG),yes)
 FFLAGS += -I$(HDF_INC)
 endif
 FFLAGS += $(PPFLAG) $(DIFORT)
-
 
 # Both programs are compiled by default.
 all: directories $(PROGRAMS) 
@@ -146,10 +161,10 @@ $(OBJDIR)/%.o: %.f90 $(MOBJS)
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 clean:
-	rm -rf $(PROGRAMS) $(OBJDIR)/*.o $(OBJDIR)/*.mod a.out
+	rm -rf $(PROGRAMS) $(OBJDIR)/*.o $(OBJDIR)/*.mod *.L *.mod mistral.o a.out
 
 tidy:
-	rm -rf $(OBJDIR)/*.o $(OBJDIR)/*.mod a.out
+	rm -rf $(OBJDIR)/*.o $(OBJDIR)/*.mod *.L *.mod mistral.o a.out
 
 # If the object directory doesn't exist, create it.
 .PHONY: directories
