@@ -1,15 +1,31 @@
 # Makefile for fsi and mhd codes. See README for necessary environment
 # variables.
 
+# If no HDF5 library is set, compile without HDF5 support
+ifndef HDF_ROOT
+HDF5FLAG = no
+endif
+
+# HDF5 flag set to 'yes' by default
+ifndef HDF5FLAG
+HDF5FLAG = yes
+endif
+
 # Non-module Fortran files to be compiled:
 FFILES = rhs.f90 fluid_time_step.f90 init_fields.f90 \
-	mask.f90 mask_fsi.f90 save_fields.f90 time_step.f90 \
+	mask.f90 mask_fsi.f90 time_step.f90 \
 	init_fields_fsi.f90 integrals.f90 params.f90 \
-	postprocessing.f90 runtime_control.f90 drag.f90 \
+	runtime_control.f90 drag.f90 \
 	draw_plate.f90 draw_sphere.f90 \
         kineloader.f90 rotation_matrices.f90 \
         add_channel.f90 add_cavity.f90 \
         noncircular_cylinder.f90 draw_flexible_plate.f90 implicit.f90
+
+ifeq ($(HDF5FLAG),yes)
+FFILES += save_fields.f90 postprocessing.f90 
+else
+FFILES += save_fields_nohdf5.f90
+endif
 
 # Object and module directory:
 OBJDIR=obj
@@ -75,19 +91,22 @@ PROGRAMS = mistral
 FFT_LIB = $(FFT_ROOT)/lib
 FFT_INC = $(FFT_ROOT)/include
 
-# P3DFFT_ROOT is set in environment.
-P3DFFT_LIB = $(P3DFFT_ROOT)/lib
-P3DFFT_INC = $(P3DFFT_ROOT)/include
-
 # HDF_ROOT is set in environment.
 HDF_LIB = $(HDF_ROOT)/lib
 HDF_INC = $(HDF_ROOT)/include
 
 # Linker flags
-LDFLAGS = -L$(P3DFFT_LIB) -lp3dfft -L$(FFT_LIB) -lfftw3 -lm
-LDFLAGS += $(HDF5_FLAGS) -L$(HDF_LIB) -lhdf5_fortran -lhdf5 -lz -ldl
+LDFLAGS = -L$(P3DFFT_LIB) -L$(FFT_LIB) -lm
+LDFLAGS += $(HDF5_FLAGS) -L$(HDF_LIB) 
+ifeq ($(HDF5FLAG),yes)
+LDFLAGS += -lhdf5_fortran -lhdf5
+endif
+LDFLAGS += -lz -ldl
 LDFLAGS += -llapack
-FFLAGS += -I$(HDF_INC) -I$(P3DFFT_INC) -I$(FFT_INC) $(PPFLAG) $(DIFORT)
+ifeq ($(HDF5FLAG),yes)
+FFLAGS += -I$(HDF_INC)
+endif
+FFLAGS += $(PPFLAG) $(DIFORT)
 
 
 # Both programs are compiled by default.
@@ -136,6 +155,7 @@ tidy:
 .PHONY: directories
 
 directories: ${OBJDIR}
+	@echo 'Build with HDF5 support:' $(HDF5FLAG)
 
 ${OBJDIR}:
 	mkdir -p ${OBJDIR}

@@ -6,13 +6,6 @@
 !====================================================================
 !====================================================================
 
-module fftw3_descriptors
-  use vars
-  implicit none
-  integer*8,dimension(1:3),save :: Desc_Handle_1D_f,Desc_Handle_1D_b
-
-end module fftw3_descriptors
-
 !---------------------------------------------------------------------
 ! module that contains wrappers for P3DFFT
 !---------------------------------------------------------------------
@@ -23,62 +16,12 @@ module p3dfft_wrapper
   
   contains
 
-! Compute the FFT of the real-valued 3D array inx and save the output
-! in the complex-valued 3D array outk.
-subroutine fft(outk,inx)
-    use mpi
-    use vars ! For precision specficiation and array sizes    
-    real(kind=pr),intent(in)::inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-    complex(kind=pr),intent(out)::outk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-
-    call coftxyz(inx,outk)
-end subroutine fft
-
-
-! Compute the inverse FFT of the complex-valued 3D array ink and save the
-! output in the real-valued 3D array outx.
-subroutine ifft(outx,ink)
-    use mpi
-    use vars ! For precision specficiation and array sizes    
-    complex(kind=pr),intent(in)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-    real(kind=pr),intent(out)::outx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-
-    call cofitxyz(ink,outx)
-end subroutine ifft
-
-
-! Compute the FFT of the real-valued 3D array inx and save the output
-! in the complex-valued 3D array outk.
-subroutine fft3(outk,inx)
-    use mpi
-    use vars ! For precision specficiation and array sizes    
-    real(kind=pr),intent(in)::inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-    complex(kind=pr),intent(out)::outk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-    call coftxyz(inx(:,:,:,1),outk(:,:,:,1))
-    call coftxyz(inx(:,:,:,2),outk(:,:,:,2))
-    call coftxyz(inx(:,:,:,3),outk(:,:,:,3))
-end subroutine fft3
-
-
-! Compute the inverse FFT of the complex-valued 3D array ink and save the
-! output in the real-valued 3D array outx.
-subroutine ifft3(outx,ink)
-    use mpi
-    use vars ! For precision specficiation and array sizes    
-    complex(kind=pr),intent(in)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-    real(kind=pr),intent(out)::outx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-    call cofitxyz(ink(:,:,:,1),outx(:,:,:,1))
-    call cofitxyz(ink(:,:,:,2),outx(:,:,:,2))
-    call cofitxyz(ink(:,:,:,3),outx(:,:,:,3))    
-end subroutine ifft3
-
 !-------------------------------------------------------------------------------
 
 subroutine setup_cart_groups
   ! Setup 1d communicators
   use mpi
   use vars
-  use p3dfft
 
   implicit none
   integer :: mpicolor,mpikey,mpicode
@@ -106,22 +49,13 @@ end subroutine setup_cart_groups
 
 !-------------------------------------------------------------------------------
 
-subroutine fft_initialize
+subroutine decomposition_initialize
   !-----------------------------------------------------------------------------
-  !     Allocate memory and initialize FFT
-  !-----------------------------------------------------------------------------
-  ! This subroutine performs two major tasks:
-  !     * Initialize P3DFFT and provide the memory management (how big are the 
-  !       chunks of data on each process (coftxyz and cofitxyz)
-  !     * Initialize 1D transforms that rely on FFTW (cofts and cofits)
-  !       the auxiliary subroutine textents is used here
+  !     Initialize domain decomposition
   !-----------------------------------------------------------------------------
   use mpi ! Module incapsulates mpif.
   use vars
-  use p3dfft
-  use fftw3_descriptors
   implicit none
-  include 'fftw3.f'
 
   integer,parameter :: nmpidims = 2
   integer :: mpicode,idir,L,n
@@ -163,20 +97,13 @@ subroutine fft_initialize
   endif
 
   !-- Initialize P3DFFT
-  call p3dfft_setup(mpidims,nx,ny,nz,MPI_COMM_WORLD, overwrite=.false.)
-
   !-- Get Cartesian topology info
-  call p3dfft_get_mpi_info(mpitaskid,mpitasks,mpicommcart)
-
   !-- Get local sizes
-  call p3dfft_get_dims(ra,rb,rs,1)  ! real blocks
-  call p3dfft_get_dims(ca,cb,cs,2)  ! complex blocks
+  call p3dfft_stub(mpidims,nx,ny,nz,MPI_COMM_WORLD,mpitaskid,mpitasks,mpicommcart,ra,rb,rs) 
   ra(:) = ra(:) - 1
   rb(:) = rb(:) - 1
-  ca(:) = ca(:) - 1
-  cb(:) = cb(:) - 1
   
-  !-- extends of real arrays that have ghost points. We add ghosts in all 
+  !-- extents of real arrays that have ghost points. We add ghosts in all 
   !-- directions, including the periodic ones.
   ga=ra-ng
   gb=rb+ng
@@ -201,70 +128,7 @@ subroutine fft_initialize
   call MPI_ALLGATHER (ra, 3, MPI_INTEGER, ra_table, 3, MPI_INTEGER, MPI_COMM_WORLD, mpicode)
   call MPI_ALLGATHER (rb, 3, MPI_INTEGER, rb_table, 3, MPI_INTEGER, MPI_COMM_WORLD, mpicode)
 
-end subroutine fft_initialize
-
-
-subroutine fft_free
-  !====================================================================
-  !     Free memory allocated for FFT
-  !====================================================================
-  use vars
-  use p3dfft
-  use fftw3_descriptors
-  implicit none
-
-  integer :: j
-
-  !-- Clean 3d workspace
-  call p3dfft_clean
-
-  !-- Clean 1d workspaces
-  do j = 1,3
-     call dfftw_destroy_plan(Desc_Handle_1D_f(j))
-     call dfftw_destroy_plan(Desc_Handle_1D_b(j))
-  enddo
-
-end subroutine fft_free
-
-
-subroutine coftxyz(f,fk)
-  !====================================================================
-  !     Calculation of the Fourier-coefficients of a real function
-  !     along x(1st index),y(2nd index),and z(3rd index)
-  !====================================================================
-  use vars
-  use p3dfft
-  use mpi
-  implicit none
-
-  real(kind=pr),intent(in) ::  f(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  complex(kind=pr),intent(out) ::  fk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  real(kind=pr) :: norm
-
-  ! Compute forward FFT
-  call p3dfft_ftran_r2c(f,fk,'fff')
-
-  ! Normalize
-  norm = 1.d0 / dble(nx*ny*nz)
-  fk(:,:,:) = fk(:,:,:) * norm
-end subroutine coftxyz
-
-
-subroutine cofitxyz(fk,f)
-  !====================================================================
-  !     Calculation of a real function from its Fourier coefficients
-  !     along x(1st index),y(2nd index),and z(3rd index)
-  !====================================================================
-  use vars
-  use p3dfft
-  use mpi
-  implicit none
-
-  complex(kind=pr),intent(in) ::  fk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  real(kind=pr),intent(out) ::  f(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  ! Compute backward FFT
-  call p3dfft_btran_c2r(fk,f,'fff')
-end subroutine cofitxyz
+end subroutine decomposition_initialize
 
 
 !----------------------------------------------------------------
@@ -293,4 +157,120 @@ real(kind=pr) function wave_z( iz )
   wave_z = scalez*dble(modulo(iz+nz/2,nz)-nz/2)
 end function
 
+
+subroutine p3dfft_stub(dims_in,nx,ny,nz,mpi_comm_in,mpi_taskid,mpi_tasks,mpi_comm_out,istart,iend,isize)
+
+  implicit none
+
+  integer, intent (in) :: nx,ny,nz,mpi_comm_in
+  integer, intent (out) :: istart(3),iend(3),isize(3)
+  integer, intent (out) :: mpi_taskid,mpi_tasks,mpi_comm_out
+  integer, intent (in) :: dims_in(2)
+
+  integer :: i,j,k,err,mpicomm,mpi_comm_cart
+  integer :: ierr,cartid(2),dims(2)
+  logical :: periodic(2),remain_dims(2)
+  integer :: ipid,jpid,iproc,jproc
+  integer :: numtasks,taskid
+  integer, dimension (:), allocatable :: jist,jisz,jien,kjst,kjsz,kjen
+
+  if(nx .le. 0 .or. ny .le. 0 .or. nz .le. 0) then
+     print *,'Invalid dimensions :',nx,ny,nz
+     call abort()
+  endif
+
+  mpicomm = mpi_comm_in
+
+  call MPI_COMM_SIZE (mpicomm,numtasks,ierr)
+  call MPI_COMM_RANK (mpicomm,taskid,ierr)
+
+  if(dims_in(1) .le. 0 .or. dims_in(2) .le. 0 .or.  dims_in(1)*dims_in(2) .ne. numtasks) then
+     print *,'Invalid processor geometry: ',dims,' for ',numtasks, 'tasks'
+     call abort()
+  endif
+
+  if(taskid .eq. 0) then 
+     print *,'Using stride-1 layout'
+  endif
+
+  iproc = dims_in(1)
+  jproc = dims_in(2)
+
+  dims(1) = dims_in(2)
+  dims(2) = dims_in(1)
+
+  periodic(1) = .false.
+  periodic(2) = .false.
+! creating cartesian processor grid
+  call MPI_Cart_create(mpicomm,2,dims,periodic,.false.,mpi_comm_cart,ierr)
+! Obtaining process ids with in the cartesian grid
+  call MPI_Cart_coords(mpi_comm_cart,taskid,2,cartid,ierr)
+! process with a linear id of 5 may have cartid of (3,1)
+
+  ipid = cartid(2)
+  jpid = cartid(1)
+
+  allocate (jist(0:iproc-1))
+  allocate (jisz(0:iproc-1))
+  allocate (jien(0:iproc-1))
+  allocate (kjst(0:jproc-1))
+  allocate (kjsz(0:jproc-1))
+  allocate (kjen(0:jproc-1))
+!
+!Mapping 3-D data arrays onto 2-D process grid
+! (nx+2,ny,nz) => (iproc,jproc)      
+! 
+  call MapDataToProc(ny,iproc,jist,jien,jisz)
+  call MapDataToProc(nz,jproc,kjst,kjen,kjsz)
+
+! These are local array indices for each processor
+  istart(1) = 1
+  iend(1) = nx
+  isize(1) = nx
+  istart(2) = jist(ipid)
+  iend(2) = jien(ipid)
+  isize(2) = jisz(ipid)
+  istart(3) = kjst(jpid)
+  iend(3) = kjen(jpid)
+  isize(3) = kjsz(jpid)
+
+  deallocate(jist,jisz,jien,kjst,kjsz,kjen)
+
+  mpi_taskid = taskid
+  mpi_tasks = numtasks
+  mpi_comm_out = mpi_comm_cart
+
+end subroutine p3dfft_stub
+
+
+subroutine MapDataToProc (data,proc,st,en,sz)
+  implicit none
+  integer data,proc,st(0:proc-1),en(0:proc-1),sz(0:proc-1)
+  integer i,size,nl,nu
+
+  size=data/proc
+  nu = data - size * proc
+  nl = proc - nu
+  st(0) = 1
+  sz(0) = size
+  en(0) = size
+  do i=1,nl-1
+     st(i) = st(i-1) + size
+     sz(i) = size
+     en(i) = en(i-1) + size
+  enddo
+  size = size + 1
+  do i=nl,proc-1
+     st(i) = en(i-1) + 1
+     sz(i) = size
+     en(i) = en(i-1) + size
+  enddo
+  en(proc-1)= data 
+  sz(proc-1)= data-st(proc-1)+1
+end subroutine
+
 end module p3dfft_wrapper
+
+
+
+

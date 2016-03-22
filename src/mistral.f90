@@ -148,8 +148,8 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   ! Initialize FFT (this also defines local array bounds for arrays)
   !-----------------------------------------------------------------------------  
-  ! Initialize p3dfft
-  call fft_initialize
+  ! Initialize domain decomposition
+  call decomposition_initialize
   ! Setup communicators used for ghost point update
   call setup_cart_groups 
   
@@ -254,9 +254,6 @@ subroutine Start_Simulation()
   
   ! write empty success file
   if (root) call init_empty_file("success")
-  
-  ! release other memory
-  call fft_free 
   
   !-------------------------
   ! Show the breakdown of timing information
