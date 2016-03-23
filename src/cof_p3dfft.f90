@@ -1,14 +1,12 @@
 !====================================================================
 !====================================================================
 !
-!     Fourier transform subroutines using P3DFFT and FFTW3
+!     This module is derived from the P3DFFT interface in FLUSI
+!     In MISTRAL it only performs the domain decomposition
+!     No FFT installation is required
 !
 !====================================================================
 !====================================================================
-
-!---------------------------------------------------------------------
-! module that contains wrappers for P3DFFT
-!---------------------------------------------------------------------
 
 module p3dfft_wrapper
   use vars
@@ -16,8 +14,9 @@ module p3dfft_wrapper
   
   contains
 
-!-------------------------------------------------------------------------------
-
+!----------------------------------------------------------------
+! set up communicators for y and z directions separately
+!----------------------------------------------------------------
 subroutine setup_cart_groups
   ! Setup 1d communicators
   use mpi
@@ -47,12 +46,11 @@ subroutine setup_cart_groups
   call MPI_CART_CREATE(mpicommtmp2,one,dims,periods,reorder,mpicommy,mpicode)
 end subroutine setup_cart_groups
 
-!-------------------------------------------------------------------------------
 
+!-----------------------------------------------------------------------------
+!     Initialize domain decomposition
+!-----------------------------------------------------------------------------
 subroutine decomposition_initialize
-  !-----------------------------------------------------------------------------
-  !     Initialize domain decomposition
-  !-----------------------------------------------------------------------------
   use mpi ! Module incapsulates mpif.
   use vars
   implicit none
@@ -63,9 +61,6 @@ subroutine decomposition_initialize
   logical,dimension(2) :: subcart
   real(kind=pr),dimension(:,:),allocatable :: f,ft
 
-  !-----------------------------------------------------------------------------
-  !------ Three-dimensional FFT                                           ------
-  !-----------------------------------------------------------------------------
   ! default case, no decomposition
   decomposition="none"
   
@@ -96,7 +91,7 @@ subroutine decomposition_initialize
      call abort()
   endif
 
-  !-- Initialize P3DFFT
+  !-- Set subdomain bounds
   !-- Get Cartesian topology info
   !-- Get local sizes
   call p3dfft_stub(mpidims,nx,ny,nz,MPI_COMM_WORLD,mpitaskid,mpitasks,mpicommcart,ra,rb,rs) 
@@ -119,7 +114,6 @@ subroutine decomposition_initialize
     call abort()
   endif
   
-  
   !-- Allocate domain partitioning tables and gather sizes from all processes 
   !-- (only for real arrays)
   ! TODO: These tables are currently not used for communication between subdomains,
@@ -135,7 +129,6 @@ end subroutine decomposition_initialize
 ! wavenumber functions: return the kx,ky,kz wavenumbers
 ! as a function of the array index
 !----------------------------------------------------------------
-
 real(kind=pr) function wave_x( ix )
   use vars ! for scale and precision statement
   implicit none
@@ -158,8 +151,10 @@ real(kind=pr) function wave_z( iz )
 end function
 
 
+!----------------------------------------------------------------
+! domain decomposition routine derived from P3DFFT
+!----------------------------------------------------------------
 subroutine p3dfft_stub(dims_in,nx,ny,nz,mpi_comm_in,mpi_taskid,mpi_tasks,mpi_comm_out,istart,iend,isize)
-
   implicit none
 
   integer, intent (in) :: nx,ny,nz,mpi_comm_in
@@ -167,12 +162,12 @@ subroutine p3dfft_stub(dims_in,nx,ny,nz,mpi_comm_in,mpi_taskid,mpi_tasks,mpi_com
   integer, intent (out) :: mpi_taskid,mpi_tasks,mpi_comm_out
   integer, intent (in) :: dims_in(2)
 
-  integer :: i,j,k,err,mpicomm,mpi_comm_cart
-  integer :: ierr,cartid(2),dims(2)
-  logical :: periodic(2),remain_dims(2)
+  integer :: i,j,k,ierr,mpicomm,mpi_comm_cart
   integer :: ipid,jpid,iproc,jproc
   integer :: numtasks,taskid
+  integer :: cartid(2),dims(2)
   integer, dimension (:), allocatable :: jist,jisz,jien,kjst,kjsz,kjen
+  logical :: periodic(2),remain_dims(2)
 
   if(nx .le. 0 .or. ny .le. 0 .or. nz .le. 0) then
      print *,'Invalid dimensions :',nx,ny,nz
@@ -180,7 +175,6 @@ subroutine p3dfft_stub(dims_in,nx,ny,nz,mpi_comm_in,mpi_taskid,mpi_tasks,mpi_com
   endif
 
   mpicomm = mpi_comm_in
-
   call MPI_COMM_SIZE (mpicomm,numtasks,ierr)
   call MPI_COMM_RANK (mpicomm,taskid,ierr)
 
@@ -195,7 +189,6 @@ subroutine p3dfft_stub(dims_in,nx,ny,nz,mpi_comm_in,mpi_taskid,mpi_tasks,mpi_com
 
   iproc = dims_in(1)
   jproc = dims_in(2)
-
   dims(1) = dims_in(2)
   dims(2) = dims_in(1)
 
@@ -243,6 +236,9 @@ subroutine p3dfft_stub(dims_in,nx,ny,nz,mpi_comm_in,mpi_taskid,mpi_tasks,mpi_com
 end subroutine p3dfft_stub
 
 
+!----------------------------------------------------------------
+! calculate subdomain bounds
+!----------------------------------------------------------------
 subroutine MapDataToProc (data,proc,st,en,sz)
   implicit none
   integer data,proc,st(0:proc-1),en(0:proc-1),sz(0:proc-1)
