@@ -2,9 +2,9 @@
 # variables.
 
 # If no HDF5 library is set, compile without HDF5 support
-ifndef HDF_ROOT
-HDF5FLAG = no
-endif
+#ifndef HDF_ROOT
+#HDF5FLAG = no
+#endif
 
 # HDF5 flag set to 'yes' by default
 ifndef HDF5FLAG

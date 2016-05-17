@@ -18,9 +18,9 @@ subroutine write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   type(solid), dimension(1:nBeams),intent(inout) :: beams
-  type(diptera), intent(inout) :: Insect 
- 
-  real(kind=pr) :: tmp(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3) 
+  type(diptera), intent(inout) :: Insect
+
+  real(kind=pr) :: tmp(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
   real(kind=pr) :: kx, ky, kz, maxdiv,maxdiv_fluid, maxdiv_loc,volume, t3
   real(kind=pr) :: concentration, conc
   real(kind=pr) :: ekinf, ekinxf, ekinyf, ekinzf
@@ -29,14 +29,14 @@ subroutine write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   real(kind=pr) :: dissf, dissxf, dissyf, disszf
   integer :: ix,iy,iz,mpicode
   real(kind=pr) :: t1
-  
+
   t1=MPI_wtime()
-  
+
   !-----------------------------------------------------------------------------
-  ! hydrodynamic forces 
+  ! hydrodynamic forces
   !-----------------------------------------------------------------------------
   if (compute_forces==1) then
-    t3 = MPI_wtime()    
+    t3 = MPI_wtime()
     ! to compute the forces, we need the mask at time t. not we cannot suppose
     ! that mask after fluidtimestep is at time t, it is rather at t-dt, thus we
     ! have to reconstruct the mask now. solids are also at time t
@@ -44,22 +44,24 @@ subroutine write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
     call cal_drag ( time, u, mask, mask_color, us, Insect, 1 )
     time_drag = time_drag + MPI_wtime() - t3
   endif
-  
+
   !-----------------------------------------------------------------------------
   ! divergence of velocity field (in the entire domain and in the fluid domain)
   !-----------------------------------------------------------------------------
   call divergence( u(:,:,:,1:3), work(:,:,:,1) )
 
   maxdiv = fieldmax( work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1) )
-  work(:,:,:,1) = work(:,:,:,1)*(1.d0-mask*eps)
+  where (mask>0.d0)
+    work(:,:,:,1) = 0
+  end where
   maxdiv_fluid = fieldmax( work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1) )
-  
+
   if(mpirank == 0) then
      open(14,file='divu.t',status='unknown',position='append')
      write (14,'(4(es15.8,1x))') time%time,maxdiv,maxdiv_fluid
      close(14)
   endif
-  
+
   !-----------------------------------------------------------------------------
   ! fluid energy and dissipation
   !-----------------------------------------------------------------------------
@@ -84,12 +86,12 @@ subroutine write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   nlk(:,:,:,3,1)=nlk(:,:,:,3,1)*(1.d0-mask*eps)
   tmp(:,:,:,:) = nlk(:,:,:,1:3,1)
   call compute_energies(tmp,dissf,dissxf,dissyf,disszf)
-  
+
   if (iTimeMethodFluid=="AB2") then
     write(*,*) "ATTENTION write_integrals is NOT YET READY for AB2, it overwrites&
     & the nlk(:,:,:,1:3,1) vector which is only ok for RK schemes"
   endif
-       
+
   ! add missing factor (from enstrophy to dissipation rate)
   diss  = 2.d0*nu*diss  ! note hidden factor of 2 in compute_energies
   dissx = 2.d0*nu*dissx
@@ -99,8 +101,8 @@ subroutine write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   dissxf = 2.d0*nu*dissxf
   dissyf = 2.d0*nu*dissyf
   disszf = 2.d0*nu*disszf
-   
-  ! dump to disk     
+
+  ! dump to disk
   if(mpirank == 0) then
      open(14,file='energy.t',status='unknown',position='append')
      write (14,'(21(es15.8,1x))') time%time,&
@@ -114,7 +116,7 @@ subroutine write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
        GlobalIntegrals%penalization_power_z
      close(14)
   endif
-  
+
   !-----------------------------------------------------------------------------
   ! Save mean flow values
   !-----------------------------------------------------------------------------
@@ -127,7 +129,7 @@ subroutine write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
      close (14)
   endif
 
-  
+
   !-----------------------------------------------------------------------------
   ! mask volume
   !-----------------------------------------------------------------------------
@@ -139,10 +141,10 @@ subroutine write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
     write (14,'(2(es15.8,1x))') time%time, volume
     close(14)
   endif
-  
-  
+
+
   time_integrals = time_integrals + MPI_wtime()-t1
-end subroutine 
+end subroutine
 
 
 
@@ -153,7 +155,7 @@ subroutine compute_energies_f(E,Ex,Ey,Ez,f1,f2,f3,mask)
   use mpi
   use vars
   implicit none
-  
+
   real(kind=pr),intent(inout) :: E,Ex,Ey,Ez
   real(kind=pr),intent(inout):: f1(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout):: f2(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
@@ -174,11 +176,11 @@ subroutine compute_energies_f(E,Ex,Ey,Ez,f1,f2,f3,mask)
      do iy=ra(2),rb(2)
         do ix=ra(1),rb(1)
            if(mask(ix,iy,iz) == 0.d0) then
-              
+
               v1=f1(ix,iy,iz)
               v2=f2(ix,iy,iz)
               v3=f3(ix,iy,iz)
-              
+
               LE=Le + v1*v1 + v2*v2 + v3*v3
               LEx=LEx + v1*v1
               LEy=LEy + v2*v2
@@ -218,7 +220,7 @@ subroutine compute_energies(u,E,Ex,Ey,Ez)
   use mpi
   use vars
   implicit none
-  
+
   real(kind=pr),intent(in):: u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
   real(kind=pr),intent(out) :: E,Ex,Ey,Ez
   real(kind=pr) :: LE,LEx,LEy,LEz ! local quantities
@@ -238,7 +240,7 @@ subroutine compute_energies(u,E,Ex,Ey,Ez)
           ux=u(ix,iy,iz,1)
           uy=u(ix,iy,iz,2)
           uz=u(ix,iy,iz,3)
-          
+
           LEx=LEx + ux*ux
           LEy=LEy + uy*uy
           LEz=LEz + uz*uz
@@ -262,8 +264,8 @@ subroutine compute_energies(u,E,Ex,Ey,Ez)
        MPI_COMM_WORLD,mpicode)
 end subroutine compute_energies
 
- 
- 
+
+
 ! Compute the fluid volume.
 subroutine compute_fluid_volume(mask,volume)
   use mpi
@@ -288,7 +290,7 @@ subroutine compute_fluid_volume(mask,volume)
         enddo
     enddo
   enddo
-  
+
   call MPI_REDUCE(Lvolume,volume,&
       1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
       MPI_COMM_WORLD,mpicode)
@@ -307,8 +309,8 @@ subroutine compute_mask_volume(mask,volume)
   real(kind=pr) :: Lvolume ! Process-local volume
 
   Lvolume=sum(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))*dx*dy*dz
-     
+
   call MPI_REDUCE(Lvolume,volume,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
           MPI_COMM_WORLD,mpicode)
-          
+
 end subroutine compute_mask_volume

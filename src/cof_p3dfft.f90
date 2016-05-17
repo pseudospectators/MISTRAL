@@ -11,7 +11,7 @@
 module p3dfft_wrapper
   use vars
   implicit none
-  
+
   contains
 
 !----------------------------------------------------------------
@@ -33,13 +33,13 @@ subroutine setup_cart_groups
   ! Get Cartesian topology information
   call MPI_CART_GET(mpicommcart,two,mpidims,mpiperiods,mpicoords,mpicode)
   ! Communicator for line in y direction
-  mpicolor = mpicoords(2) 
+  mpicolor = mpicoords(2)
   mpikey = mpicoords(1)
   call MPI_COMM_SPLIT (mpicommcart,mpicolor,mpikey,mpicommtmp1,mpicode)
   dims(1) = mpidims(1)
   call MPI_CART_CREATE(mpicommtmp1,one,dims,periods,reorder,mpicommz,mpicode)
   ! Communicator for line in z direction
-  mpicolor = mpicoords(1) 
+  mpicolor = mpicoords(1)
   mpikey = mpicoords(2)
   call MPI_COMM_SPLIT (mpicommcart,mpicolor,mpikey,mpicommtmp2,mpicode)
   dims(1) = mpidims(2)
@@ -63,10 +63,10 @@ subroutine decomposition_initialize
 
   ! default case, no decomposition
   decomposition="none"
-  
+
   !-- Set up dimensions. It is very important that mpidims(2) > mpidims(1)
   ! because P3Dfft crashes otherwise. This means a 1D decomposition is always
-  ! along the z direction in real space. 
+  ! along the z direction in real space.
   if (nz>mpisize.and.nx==1) then
      mpidims(1) = 1             ! due to p3dfft, 1D decomposition is always the
      mpidims(2) = mpisize       ! 3rd index in real space.
@@ -81,7 +81,7 @@ subroutine decomposition_initialize
      endif
      decomposition="2D"
   endif
-  
+
   if (root) write(*,'("mpidims= ",i3,1x,i3)') mpidims
   if (root) write(*,'("Using ",A," decomposition!")') trim(adjustl(decomposition))
 
@@ -94,27 +94,27 @@ subroutine decomposition_initialize
   !-- Set subdomain bounds
   !-- Get Cartesian topology info
   !-- Get local sizes
-  call p3dfft_stub(mpidims,nx,ny,nz,MPI_COMM_WORLD,mpitaskid,mpitasks,mpicommcart,ra,rb,rs) 
+  call p3dfft_stub(mpidims,nx,ny,nz,MPI_COMM_WORLD,mpitaskid,mpitasks,mpicommcart,ra,rb,rs)
   ra(:) = ra(:) - 1
   rb(:) = rb(:) - 1
-  
-  !-- extents of real arrays that have ghost points. We add ghosts in all 
+
+  !-- extents of real arrays that have ghost points. We add ghosts in all
   !-- directions, including the periodic ones.
   ga=ra-ng
   gb=rb+ng
-  
+
   if (nx==1) then
     ga(1)=0
     gb(1)=0
   endif
-  
+
   if ( rb(2)-ra(2)+1<2*ng .or. rb(3)-ra(3)+1<2*ng ) then
     if (mpirank==0) write(*,*) "Too many CPUs: the ghosts span more than one CPU"
     if (mpirank==0) write(*,*) "y", rb(2)-ra(2)+1, "z", rb(3)-ra(3)+1
     call abort()
   endif
-  
-  !-- Allocate domain partitioning tables and gather sizes from all processes 
+
+  !-- Allocate domain partitioning tables and gather sizes from all processes
   !-- (only for real arrays)
   ! TODO: These tables are currently not used for communication between subdomains,
   ! but may be still useful for development/debugging purposes.
@@ -123,32 +123,6 @@ subroutine decomposition_initialize
   call MPI_ALLGATHER (rb, 3, MPI_INTEGER, rb_table, 3, MPI_INTEGER, MPI_COMM_WORLD, mpicode)
 
 end subroutine decomposition_initialize
-
-
-!----------------------------------------------------------------
-! wavenumber functions: return the kx,ky,kz wavenumbers
-! as a function of the array index
-!----------------------------------------------------------------
-real(kind=pr) function wave_x( ix )
-  use vars ! for scale and precision statement
-  implicit none
-  integer, intent (in) :: ix
-  wave_x = scalex*dble(ix)
-end function
-
-real(kind=pr) function wave_y( iy )
-  use vars ! for scale and precision statement
-  implicit none
-  integer, intent (in) :: iy
-  wave_y = scaley*dble(modulo(iy+ny/2,ny)-ny/2)
-end function
-
-real(kind=pr) function wave_z( iz )
-  use vars ! for scale and precision statement
-  implicit none
-  integer, intent (in) :: iz
-  wave_z = scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-end function
 
 
 !----------------------------------------------------------------
@@ -183,7 +157,7 @@ subroutine p3dfft_stub(dims_in,nx,ny,nz,mpi_comm_in,mpi_taskid,mpi_tasks,mpi_com
      call abort()
   endif
 
-  if(taskid .eq. 0) then 
+  if(taskid .eq. 0) then
      print *,'Using stride-1 layout'
   endif
 
@@ -211,8 +185,8 @@ subroutine p3dfft_stub(dims_in,nx,ny,nz,mpi_comm_in,mpi_taskid,mpi_tasks,mpi_com
   allocate (kjen(0:jproc-1))
 !
 !Mapping 3-D data arrays onto 2-D process grid
-! (nx+2,ny,nz) => (iproc,jproc)      
-! 
+! (nx+2,ny,nz) => (iproc,jproc)
+!
   call MapDataToProc(ny,iproc,jist,jien,jisz)
   call MapDataToProc(nz,jproc,kjst,kjen,kjsz)
 
@@ -261,12 +235,8 @@ subroutine MapDataToProc (data,proc,st,en,sz)
      sz(i) = size
      en(i) = en(i-1) + size
   enddo
-  en(proc-1)= data 
+  en(proc-1)= data
   sz(proc-1)= data-st(proc-1)+1
 end subroutine
 
 end module p3dfft_wrapper
-
-
-
-

@@ -2,13 +2,13 @@
 module vars
   use mpi
   implicit none
-  
-  
+
+
   integer,parameter :: nlines=2048 ! maximum number of lines in PARAMS-file
   integer,parameter :: strlen=80   ! standard string length
   ! Precision of doubles
-  integer,parameter :: pr = 8 
-  
+  integer,parameter :: pr = 8
+
   !-----------------------------------------------------------------------------
   ! Type declarations
   !-----------------------------------------------------------------------------
@@ -29,7 +29,7 @@ module vars
      real(kind=pr),dimension(1:3) :: Force_unst
      real(kind=pr),dimension(1:3) :: Torque
      real(kind=pr),dimension(1:3) :: Torque_unst
-  end type Integrals    
+  end type Integrals
   !-----------------------------------------------------------------------------
   ! derived datatype for rigid solid dynamics solver
   type SolidDynType
@@ -50,13 +50,13 @@ module vars
     real(kind=pr) :: time
     real(kind=pr) :: dt_new
     real(kind=pr) :: dt_old
-    integer :: it, it_start 
+    integer :: it, it_start
     integer :: n0
     integer :: n1
   end type timetype
-  
-  
-  
+
+
+
   !-----------------------------------------------------------------------------
   ! Global parameters and variables
   !-----------------------------------------------------------------------------
@@ -64,7 +64,7 @@ module vars
   ! Method variables set in the program file:
   character(len=strlen),save :: method ! mhd  or fsi
   character(len=strlen),save :: dry_run_without_fluid ! just save mask function
-  
+
   integer,save :: neq ! number of equations
   integer,save :: nrw ! number of real work arrays in work
   integer,save :: ng  ! number of ghostpoints (if used)
@@ -78,9 +78,9 @@ module vars
   integer,dimension (1:3),save :: ga,gb
   ! Local array bounds for real arrays for all MPI processes
   integer, dimension (:,:), allocatable, save :: ra_table, rb_table
-  ! for simplicity, store what decomposition we use 
+  ! for simplicity, store what decomposition we use
   character(len=strlen), save :: decomposition
-  
+
   ! p3dfft domain decomposition parameters and communicators
   integer,save :: mpicommcart,mpicommy,mpicommz,mpitaskid,mpitasks
   integer,dimension(2),save :: mpidims,mpicoords,mpicommslab
@@ -99,7 +99,7 @@ module vars
   real(kind=pr),save :: time_hdf5, time_integrals, time_rhs
 
   ! Variables set via the parameters file
-  real(kind=pr),save :: length 
+  real(kind=pr),save :: length
 
   ! Domain size variables:
   integer,save :: nx,ny,nz
@@ -120,7 +120,7 @@ module vars
   integer,save :: itbeam
   real(kind=pr),save :: truntime, truntimenext ! Number of hours bet
   real(kind=pr),save :: wtimemax ! Stop after a certain number of hours of wall.
-  ! for periodically repeating flows, it may be better to always have only 
+  ! for periodically repeating flows, it may be better to always have only
   ! one set of files on the disk
   character(len=strlen),save :: save_only_one_period
   real(kind=pr),save :: tsave_period ! then this is period time
@@ -134,8 +134,8 @@ module vars
   character(len=strlen),save :: iTimeMethodFluid
 
   ! viscosity (inverse of Reynolds number:)
-  real(kind=pr),save :: nu
-  
+  real(kind=pr),save :: nu, eps_sponge
+
   ! pseudo speed of sound for the artificial compressibility method
   real(kind=pr), save :: c_0, gamma_p
 
@@ -154,36 +154,36 @@ module vars
   ! wall thickness
   real(kind=pr),save :: thick_wall
   ! wall position (solid from pos_wall to pos_wall+thick_wall)
-  real(kind=pr),save :: pos_wall 
-  
+  real(kind=pr),save :: pos_wall
+
 
   ! save forces and use unsteady corrections?
-  integer, save :: compute_forces  
-  
+  integer, save :: compute_forces
+
   ! mean flow control
   real(kind=pr),save :: Uxmean,Uymean,Uzmean, m_fluid
   character(len=strlen),save :: iMeanFlow_x,iMeanFlow_y,iMeanFlow_z
   ! mean flow startup conditioner (if "dynamic" and mean flow at t=0 is not zero
-  ! the forces are singular at the beginning. use the startup conditioner to 
+  ! the forces are singular at the beginning. use the startup conditioner to
   ! avoid large accelerations in mean flow at the beginning)
   character(len=strlen),save :: iMeanFlowStartupConditioner
   real(kind=pr) :: tau_meanflow, T_release_meanflow
-  
+
 
 
   ! solid model main switch
   character(len=strlen),save :: use_solid_model
-  
+
   !-----------------------------------------------------------------------------
 
   type(Integrals),save :: GlobalIntegrals
   type(SolidDynType), save :: SolidDyn
-  
-  
+
+
   !-----------------------------------------------------------------------------
   ! Small helper functions
   !-----------------------------------------------------------------------------
-  contains 
+  contains
 
     !---------------------------------------------------------------------------
     integer function GetIndex(ix,nx)
@@ -212,7 +212,7 @@ module vars
     subroutine suicide1
       implicit none
       integer :: mpicode
-      
+
       if (mpirank==0) write(*,*) "Killing run..."
       call MPI_abort(MPI_COMM_WORLD,666,mpicode)
     end subroutine suicide1
@@ -221,7 +221,7 @@ module vars
       implicit none
       integer :: mpicode
       character(len=*), intent(in) :: msg
-      
+
       if (mpirank==0) write(*,*) "Killing run..."
       if (mpirank==0) write(*,*) msg
       call MPI_abort(MPI_COMM_WORLD,666,mpicode)
@@ -239,17 +239,17 @@ module vars
     real(kind=pr) function rand_nbr()
       implicit none
       call random_number( rand_nbr )
-    end function 
+    end function
     !---------------------------------------------------------------------------
     ! soft startup funtion, is zero until time=time_release, then gently goes to
-    ! one during the time period time_tau 
+    ! one during the time period time_tau
     real(kind=pr) function startup_conditioner(time,time_release,time_tau)
       implicit none
       real(kind=pr), intent(in) :: time,time_release,time_tau
       real(kind=pr) :: t
-      
+
       t = time-time_release
-      
+
       if (time <= time_release) then
         startup_conditioner = 0.d0
       elseif ( ( time >time_release ).and.(time<(time_release + time_tau)) ) then
@@ -257,7 +257,7 @@ module vars
       else
         startup_conditioner = 1.d0
       endif
-      
+
     end function
     !---------------------------------------------------------------------------
     ! this function simplifies my life with the insects
