@@ -54,7 +54,6 @@ subroutine Start_Simulation()
   use p3dfft_wrapper
   use solid_model
   use insect_module
-  use kine ! kinematics from file (Dmitry, 14 Nov 2013)
   implicit none
   real(kind=pr)          :: t1,t2
   real(kind=pr)          :: memory, mem_field
@@ -148,9 +147,10 @@ subroutine Start_Simulation()
   ! Initialize FFT (this also defines local array bounds for arrays)
   !-----------------------------------------------------------------------------
   ! Initialize domain decomposition
-  call decomposition_initialize
+  call decomposition_initialize()
   ! Setup communicators used for ghost point update
-  call setup_cart_groups
+  call setup_cart_groups()
+
 
   !-----------------------------------------------------------------------------
   ! Initialize time series output files, if not resuming a backup
@@ -210,19 +210,21 @@ subroutine Start_Simulation()
     write(*,'(80("-"))')
   endif
 
+  call ghosts_unit_test( mask )
+
   !-----------------------------------------------------------------------------
   ! initalize some insect stuff, if used
   !-----------------------------------------------------------------------------
-  ! Load kinematics from file
-  if (iMask=="Insect") then
-    if (Insect%KineFromFile/="no") then
-      if (mpirank==0) write(*,*) "Initializing kinematics loader..."
-      call load_kine_init(mpirank)
-    endif
-    ! If required, initialize rigid solid dynamics solver
-    ! and set idynamics flag on or off
-    call rigid_solid_init(SolidDyn%idynamics,Insect)
-  endif
+  ! ! Load kinematics from file
+  ! if (iMask=="Insect") then
+  !   if (Insect%KineFromFile/="no") then
+  !     if (mpirank==0) write(*,*) "Initializing kinematics loader..."
+  !     call load_kine_init(mpirank)
+  !   endif
+  !   ! If required, initialize rigid solid dynamics solver
+  !   ! and set idynamics flag on or off
+  !   call rigid_solid_init(SolidDyn%idynamics,Insect)
+  ! endif
 
   !-----------------------------------------------------------------------------
   ! Initial condition
@@ -246,7 +248,7 @@ subroutine Start_Simulation()
 
   if (iMask=="Insect") then
     ! Clean kinematics (Dmitry, 14 Nov 2013)
-    if (Insect%KineFromFile/="no") call load_kine_clean
+    ! if (Insect%KineFromFile/="no") call load_kine_clean
     ! Clean insect (the globally stored arrays for Fourier coeffs etc..)
     call insect_clean(Insect)
   endif

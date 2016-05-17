@@ -4,35 +4,35 @@
 ! in real space and organizes their exchange between CPUs. We inherently rely
 ! on knowing every CPU the entire domain decomposition in a 2D array.
 !
-! 05 Oct 2014 (Thomas) Modify the ghost points to be added in all directions, also in 
-!       periodic ones. This makes applying finite differences easier and the 
+! 05 Oct 2014 (Thomas) Modify the ghost points to be added in all directions, also in
+!       periodic ones. This makes applying finite differences easier and the
 !       operation is not very expensive.
 !
 !-------------------------------------------------------------------------------
 module ghosts
- 
+
 !-------------------------------------------------------------------------------
-! interface for ghsot synchronization routines. you can 
+! interface for ghsot synchronization routines. you can
 ! call synchronize_ghosts(p)  (sync one field, or one component)
 ! call synchronize_ghosts(u,4)  (sync four components at the same time)
 ! note it is much more efficient to do the latter instead of 4 times the former
-!------------------------------------------------------------------------------- 
+!-------------------------------------------------------------------------------
  interface synchronize_ghosts
    module procedure synchronize_ghosts, synchronize_ghosts_FD
  end interface
 
- 
-!!!!!!!!!!!!!! 
- contains 
+
 !!!!!!!!!!!!!!
- 
- 
-!------------------------------------------------------------------------------- 
-! Ghost point synchronization in all directions 
+ contains
+!!!!!!!!!!!!!!
+
+
+!-------------------------------------------------------------------------------
+! Ghost point synchronization in all directions
 ! For only one 3d field
 !-------------------------------------------------------------------------------
 subroutine synchronize_ghosts ( fld )
-  ! Routine assumes that heart of the matrix "fld" (thus the regular part of 
+  ! Routine assumes that heart of the matrix "fld" (thus the regular part of
   ! it) have been filled previously. Here, we exchange only the ghosts
   use vars
   implicit none
@@ -42,8 +42,8 @@ subroutine synchronize_ghosts ( fld )
   ! x direction is always local, i.e. it is not split among MPI procs. In this
   ! direction, which is assumed PERIODIC at present, we can locally copy data
   call synchronize_ghosts_FD_x_serial (fld,1) ! note nc=1
-  
-  
+
+
   ! y direction can be distributed or local, i.e. is is possible that it is split
   ! among processes.
   if (mpidims(2)>1) then
@@ -51,8 +51,8 @@ subroutine synchronize_ghosts ( fld )
   else
     call synchronize_ghosts_FD_y_serial (fld,1)
   endif
-  
-  
+
+
   ! z direction can be distributed or local
   ! p3dfft decomposes first in z, then in y
   if (mpidims(1)>1) then
@@ -69,27 +69,27 @@ end subroutine synchronize_ghosts
 ! For nc 3d fields
 !-------------------------------------------------------------------------------
 subroutine synchronize_ghosts_FD ( fld, nc )
-  ! Routine assumes that heart of the matrix "field" (thus the regular part of 
+  ! Routine assumes that heart of the matrix "field" (thus the regular part of
   ! it) have been filled previously. Here, we exchange only the ghosts
   use vars
   use mpi
   implicit none
   integer, intent(in) :: nc
   real(kind=pr), intent(inout) :: fld(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nc)
- 
+
   ! x direction is always local, i.e. it is not split among MPI procs. In this
   ! direction, which is assumed PERIODIC at present, we can locally copy data
   call synchronize_ghosts_FD_x_serial (fld,nc)
-  
-  
+
+
   ! y direction can be distributed or local
   if (mpidims(2)>1) then
     call synchronize_ghosts_FD_y_mpi (fld,nc)
   else
     call synchronize_ghosts_FD_y_serial (fld,nc)
   endif
-  
-  
+
+
   ! z direction can be distributed or local
   ! p3dfft decomposes first in z, then in y
   if (mpidims(1)>1) then
@@ -236,6 +236,56 @@ subroutine synchronize_ghosts_FD_z_serial ( fld,nc )
   endif
 end subroutine synchronize_ghosts_FD_z_serial
 
+
+!-------------------------------------------------------------------------------
+subroutine ghosts_unit_test( work )
+  use vars
+  implicit none
+  real(kind=pr),intent(inout):: work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  integer :: ix,iy,iz
+  real(kind=pr) :: x,y,z,fexact,fsync
+
+  work=0.d0
+  !-- the array "mask" with some values (analytic function defintion)
+  ! we fill only the interior points, then we synchronize, and check if this worked
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1)
+        x=dble(ix)*dx
+        y=dble(iy)*dy
+        z=dble(iz)*dz
+        work(ix,iy,iz)=sin(y)*cos(z)
+      enddo
+    enddo
+  enddo
+
+  call synchronize_ghosts ( work )
+
+  if (root) write(*,*) "running ghost node synchronization unit test..."
+
+  ! we now have the ghost nodes synchronized, so why not testing if it worked?
+  do iz=ga(3),gb(3)
+    do iy=ga(2),gb(2)
+      do ix=ga(1),gb(1)
+        x = dble(per(ix,nx))*dx
+        y = dble(per(iy,ny))*dy
+        z = dble(per(iz,nz))*dz
+        fexact=sin(y)*cos(z)
+        fsync =work(ix,iy,iz)
+
+        if ( abs(fexact) > 1.0d-9 ) then
+          if ( abs((fexact-fsync)/fexact) >= 1.0d-13 ) then
+            write(*,*) "err=",abs((fexact-fsync)/fexact),ix,iy,iz
+            call abort("ghost node synchronization unit test failed")
+          endif
+        endif
+
+      enddo
+    enddo
+  enddo
+
+  if (root) write(*,*) "ghost node test done."
+end subroutine
+
+
 end module ghosts
-
-

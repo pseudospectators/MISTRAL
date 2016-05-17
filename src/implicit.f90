@@ -28,7 +28,7 @@ subroutine semiimplicit_time_stepping(time,u,nlk,work,mask,mask_color,us,Insect,
   real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   type(solid), dimension(1:nBeams),intent(inout)::beams
-  type(diptera), intent(inout)::Insect 
+  type(diptera), intent(inout)::Insect
   integer :: chflag
   real(kind=pr)::t1
 
@@ -41,7 +41,7 @@ subroutine semiimplicit_time_stepping(time,u,nlk,work,mask,mask_color,us,Insect,
   if (SolidDyn%idynamics>0) then
     t1 = MPI_wtime()
     if (unst_corrections==1) then
-      call cal_unst_corrections(time,mask,mask_color,us,Insect)  
+      call cal_unst_corrections(time,mask,mask_color,us,Insect)
     endif
     call cal_drag (time,u,mask,mask_color,us,Insect,0) ! note u is OLD time level
     time_drag = time_drag + MPI_wtime() - t1
@@ -83,9 +83,10 @@ subroutine semiimplicit_time_stepping(time,u,nlk,work,mask,mask_color,us,Insect,
   ! Newton's second law: advance in time ODEs that describe rigid solids
   ! Predictor step
   if (SolidDyn%idynamics>0) then
-    ! predictor step: last argument istage=0 
+    ! predictor step: last argument istage=0
     ! only the position of the solid is calculated at time%time+0.5d0*time%dt_new
-    call rigid_solid_time_step(time%time,time%dt_old,0.5d0*time%dt_new,time%it,Insect,0)
+    ! call rigid_solid_time_step(time%time,time%dt_old,0.5d0*time%dt_new,time%it,Insect,0)
+    call abort(3334)
   endif
 
   ! Update mask function to ensure it is at the right time
@@ -129,7 +130,8 @@ subroutine semiimplicit_time_stepping(time,u,nlk,work,mask,mask_color,us,Insect,
     ! corrector step: last argument istage=1
     ! new position of the solid is calculated and rhs vector at two previous
     ! steps is updated
-    call rigid_solid_time_step(time%time,time%dt_old,time%dt_new,time%it,Insect,1)
+    ! call rigid_solid_time_step(time%time,time%dt_old,time%dt_new,time%it,Insect,1)
+    call abort(777)
   endif
 
 end subroutine semiimplicit_time_stepping
@@ -172,7 +174,7 @@ subroutine adjust_dt_impl(time,u,dt1,chflag)
      !-- fix the time step no matter what. the result may be unstable.
      dt1=dt_fixed
      !-- stop exactly at tmax
-     if (dt1 > tmax-time .and. tmax-time>0.d0) then 
+     if (dt1 > tmax-time .and. tmax-time>0.d0) then
        dt1=tmax-time
        chflag = 1
      endif
@@ -186,14 +188,14 @@ subroutine adjust_dt_impl(time,u,dt1,chflag)
      !tmp(:,:,:,:) = u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
      !umax = fieldmaxabs3(tmp)
      umax = fieldmaxabs3(u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3))
-     
+
      !-- Adjust time step at 0th process
      if(mpirank == 0) then
         if(is_nan(umax)) then
            write(*,*) "Evolved field contains a NAN: aborting run."
            call abort()
         endif
-     
+
         !-- Impose the CFL condition.
         if (umax >= 1.0d-8) then
            if (nx==1) then
@@ -209,8 +211,8 @@ subroutine adjust_dt_impl(time,u,dt1,chflag)
         endif
 
         !-- Impose penalty stability condition: dt cannot be larger than eps
-        if (iPenalization > 0) dt1=min(0.99d0*eps,dt1) 
-        
+        if (iPenalization > 0) dt1=min(0.99d0*eps,dt1)
+
         ! Don't jump past save-points: if the time-step is larger than
         ! the time interval between outputs, decrease the time-step.
         if(tsave > 0.d0 .and. dt1 > tsave) then
@@ -228,7 +230,7 @@ subroutine adjust_dt_impl(time,u,dt1,chflag)
           ! 3D case
           dt1 = min( dt1, min(dx,dy,dz)*cfl/c_0 )
         endif
-        
+
         !-- impose max dt, if specified
         if (dt_max>0.d0) dt1=min(dt1,dt_max)
         if (dt1 > tmax-time .and. tmax-time>0.d0) dt1=tmax-time
@@ -237,7 +239,7 @@ subroutine adjust_dt_impl(time,u,dt1,chflag)
      ! Broadcast time step to all processes
      call MPI_BCAST(dt1,one,MPI_DOUBLE_PRECISION,zero,MPI_COMM_WORLD,mpicode)
   endif
-  
+
 end subroutine adjust_dt_impl
 
 
@@ -271,11 +273,11 @@ subroutine cal_lin_expl(u,rhs)
   dxinv = 0.5d0/dx
   dyinv = 0.5d0/dy
   dzinv = 0.5d0/dz
-  
+
   dx2inv = 1.d0/(dx*dx)
   dy2inv = 1.d0/(dy*dy)
   dz2inv = 1.d0/(dz*dz)
-  
+
   if (nx==1) then
     ! 2d case
     ix=0
@@ -284,26 +286,26 @@ subroutine cal_lin_expl(u,rhs)
         ! Velocity components
         uy = u(ix,iy,iz,2)
         uz = u(ix,iy,iz,3)
-        
-        ! Pressure gradient 
+
+        ! Pressure gradient
         pdy  = (rhs(ix,iy+1,iz,4) - rhs(ix,iy-1,iz,4))*dyinv
         pdz  = (rhs(ix,iy,iz+1,4) - rhs(ix,iy,iz-1,4))*dzinv
-      
-        ! Laplacian 
-        uydydy = (u(ix,iy-1,iz,2)-2.d0*u(ix,iy,iz,2)+u(ix,iy+1,iz,2))*dy2inv 
-        uydzdz = (u(ix,iy,iz-1,2)-2.d0*u(ix,iy,iz,2)+u(ix,iy,iz+1,2))*dz2inv 
-      
-        uzdydy = (u(ix,iy-1,iz,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy+1,iz,3))*dy2inv 
-        uzdzdz = (u(ix,iy,iz-1,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy,iz+1,3))*dz2inv 
+
+        ! Laplacian
+        uydydy = (u(ix,iy-1,iz,2)-2.d0*u(ix,iy,iz,2)+u(ix,iy+1,iz,2))*dy2inv
+        uydzdz = (u(ix,iy,iz-1,2)-2.d0*u(ix,iy,iz,2)+u(ix,iy,iz+1,2))*dz2inv
+
+        uzdydy = (u(ix,iy-1,iz,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy+1,iz,3))*dy2inv
+        uzdzdz = (u(ix,iy,iz-1,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy,iz+1,3))*dz2inv
 
         ! RHS
         rhs(ix,iy,iz,1) = 0.d0
-        rhs(ix,iy,iz,2) = - pdy + nu*(uydydy+uydzdz) 
+        rhs(ix,iy,iz,2) = - pdy + nu*(uydydy+uydzdz)
         rhs(ix,iy,iz,3) = - pdz + nu*(uzdydy+uzdzdz)
       enddo
-    enddo     
+    enddo
   else
-    ! 3d case 
+    ! 3d case
     do iz=ra(3),rb(3)
       do iy=ra(2),rb(2)
         do ix=ra(1),rb(1)
@@ -311,37 +313,37 @@ subroutine cal_lin_expl(u,rhs)
           ux = u(ix,iy,iz,1)
           uy = u(ix,iy,iz,2)
           uz = u(ix,iy,iz,3)
-        
+
           ! Pressure gradient
           pdx = (rhs(ix+1,iy,iz,4) - rhs(ix-1,iy,iz,4))*dxinv
           pdy = (rhs(ix,iy+1,iz,4) - rhs(ix,iy-1,iz,4))*dyinv
           pdz = (rhs(ix,iy,iz+1,4) - rhs(ix,iy,iz-1,4))*dzinv
-        
+
           ! Laplacian
-          uxdxdx = (u(ix-1,iy,iz,1)-2.d0*u(ix,iy,iz,1)+u(ix+1,iy,iz,1))*dx2inv 
-          uxdydy = (u(ix,iy-1,iz,1)-2.d0*u(ix,iy,iz,1)+u(ix,iy+1,iz,1))*dy2inv 
-          uxdzdz = (u(ix,iy,iz-1,1)-2.d0*u(ix,iy,iz,1)+u(ix,iy,iz+1,1))*dz2inv 
-        
-          uydxdx = (u(ix-1,iy,iz,2)-2.d0*u(ix,iy,iz,2)+u(ix+1,iy,iz,2))*dx2inv 
-          uydydy = (u(ix,iy-1,iz,2)-2.d0*u(ix,iy,iz,2)+u(ix,iy+1,iz,2))*dy2inv 
-          uydzdz = (u(ix,iy,iz-1,2)-2.d0*u(ix,iy,iz,2)+u(ix,iy,iz+1,2))*dz2inv 
-        
-          uzdxdx = (u(ix-1,iy,iz,3)-2.d0*u(ix,iy,iz,3)+u(ix+1,iy,iz,3))*dx2inv 
-          uzdydy = (u(ix,iy-1,iz,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy+1,iz,3))*dy2inv 
-          uzdzdz = (u(ix,iy,iz-1,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy,iz+1,3))*dz2inv 
+          uxdxdx = (u(ix-1,iy,iz,1)-2.d0*u(ix,iy,iz,1)+u(ix+1,iy,iz,1))*dx2inv
+          uxdydy = (u(ix,iy-1,iz,1)-2.d0*u(ix,iy,iz,1)+u(ix,iy+1,iz,1))*dy2inv
+          uxdzdz = (u(ix,iy,iz-1,1)-2.d0*u(ix,iy,iz,1)+u(ix,iy,iz+1,1))*dz2inv
+
+          uydxdx = (u(ix-1,iy,iz,2)-2.d0*u(ix,iy,iz,2)+u(ix+1,iy,iz,2))*dx2inv
+          uydydy = (u(ix,iy-1,iz,2)-2.d0*u(ix,iy,iz,2)+u(ix,iy+1,iz,2))*dy2inv
+          uydzdz = (u(ix,iy,iz-1,2)-2.d0*u(ix,iy,iz,2)+u(ix,iy,iz+1,2))*dz2inv
+
+          uzdxdx = (u(ix-1,iy,iz,3)-2.d0*u(ix,iy,iz,3)+u(ix+1,iy,iz,3))*dx2inv
+          uzdydy = (u(ix,iy-1,iz,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy+1,iz,3))*dy2inv
+          uzdzdz = (u(ix,iy,iz-1,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy,iz+1,3))*dz2inv
 
           ! RHS
-          rhs(ix,iy,iz,1) = - pdx + nu*(uxdxdx+uxdydy+uxdzdz) 
-          rhs(ix,iy,iz,2) = - pdy + nu*(uydxdx+uydydy+uydzdz) 
-          rhs(ix,iy,iz,3) = - pdz + nu*(uzdxdx+uzdydy+uzdzdz) 
+          rhs(ix,iy,iz,1) = - pdx + nu*(uxdxdx+uxdydy+uxdzdz)
+          rhs(ix,iy,iz,2) = - pdy + nu*(uydxdx+uydydy+uydzdz)
+          rhs(ix,iy,iz,3) = - pdz + nu*(uzdxdx+uzdydy+uzdzdz)
         enddo
       enddo
-    enddo     
+    enddo
   endif
-  
+
   ! Synchronize ghost points
   call synchronize_ghosts(rhs(:,:,:,:),3)
- 
+
 end subroutine cal_lin_expl
 
 
@@ -379,33 +381,33 @@ subroutine cal_nl_expl(time,u,rhs,work,mask,mask_color,us,Insect,beams)
   real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   type(solid), dimension(1:nBeams),intent(inout)::beams
-  type(diptera), intent(inout)::Insect 
+  type(diptera), intent(inout)::Insect
 
   ! Call specialized rhs subroutines
   if (nx==1) then
     ! 2d case, 2nd order finite differences
     call rhs_impl_2nd_2D(time,u,rhs,work,mask,mask_color,us,Insect,beams)
-  else 
+  else
     ! 3d case, 2nd order finite differences
     call rhs_impl_2nd(time,u,rhs,work,mask,mask_color,us,Insect,beams)
   endif
-  
+
   ! Synchronize ghost points
   call synchronize_ghosts(rhs(:,:,:,:),3)
- 
+
 end subroutine cal_nl_expl
 
 !-------------------------------------------------------------------------------
 ! Nonlinear, penality and forcing terms of the momentum equation, explicit
 ! 3d case, 2nd order finite differences
-! INPUT/OUTPUT as in cal_nl_expl 
+! INPUT/OUTPUT as in cal_nl_expl
 !-------------------------------------------------------------------------------
 subroutine rhs_impl_2nd(time,u,rhs,work,mask,mask_color,us,Insect,beams)
   use vars
   use insect_module
   use solid_model
   use ghosts
-  
+
   implicit none
   real(kind=pr),intent(in)::time
   real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
@@ -415,28 +417,28 @@ subroutine rhs_impl_2nd(time,u,rhs,work,mask,mask_color,us,Insect,beams)
   real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   type(solid),dimension(1:nBeams),intent(inout)::beams
-  type(diptera),intent(inout)::Insect 
-  
+  type(diptera),intent(inout)::Insect
+
   integer::ix,iy,iz
   real(kind=pr)::ux,uy,uz,vorx,vory,vorz,uxdy,uxdz,uydx,uydz,uzdx,uzdy,&
   dxinv,dyinv,dzinv,dx2inv,dy2inv,dz2inv,penalx,penaly,penalz
   real(kind=pr)::forcing(1:3)
   type(timetype)::t
-  
+
   ! fetch forcing term used to accelerate the mean flow
   t%time = time
   t%dt_new = 0.d0
   call forcing_term(t,u,forcing)
- 
-  ! Inverse grid step 
+
+  ! Inverse grid step
   dxinv = 1.d0/(2.d0*dx)
   dyinv = 1.d0/(2.d0*dy)
   dzinv = 1.d0/(2.d0*dz)
-  
+
   dx2inv = 1.d0/(dx*dx)
   dy2inv = 1.d0/(dy*dy)
   dz2inv = 1.d0/(dz*dz)
-  
+
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
       do ix=ra(1),rb(1)
@@ -444,49 +446,49 @@ subroutine rhs_impl_2nd(time,u,rhs,work,mask,mask_color,us,Insect,beams)
         ux = u(ix,iy,iz,1)
         uy = u(ix,iy,iz,2)
         uz = u(ix,iy,iz,3)
-        
+
         ! Velocity gradient components
         uxdy = (u(ix,iy+1,iz,1) - u(ix,iy-1,iz,1))*dyinv
         uxdz = (u(ix,iy,iz+1,1) - u(ix,iy,iz-1,1))*dzinv
-        
+
         uydx = (u(ix+1,iy,iz,2) - u(ix-1,iy,iz,2))*dxinv
         uydz = (u(ix,iy,iz+1,2) - u(ix,iy,iz-1,2))*dzinv
-        
+
         uzdx = (u(ix+1,iy,iz,3) - u(ix-1,iy,iz,3))*dxinv
         uzdy = (u(ix,iy+1,iz,3) - u(ix,iy-1,iz,3))*dyinv
-        
+
         ! Vorticity
         vorx = uzdy - uydz
         vory = uxdz - uzdx
         vorz = uydx - uxdy
-        
+
         ! Penalty term
         penalx = -mask(ix,iy,iz)*(ux-us(ix,iy,iz,1))
         penaly = -mask(ix,iy,iz)*(uy-us(ix,iy,iz,2))
         penalz = -mask(ix,iy,iz)*(uz-us(ix,iy,iz,3))
-      
+
         ! Nonlinear, penalty and forcing terms
         rhs(ix,iy,iz,1) = uy*vorz -uz*vory + penalx + forcing(1)
         rhs(ix,iy,iz,2) = uz*vorx -ux*vorz + penaly + forcing(2)
         rhs(ix,iy,iz,3) = ux*vory -uy*vorx + penalz + forcing(3)
       enddo
     enddo
-  enddo     
-        
+  enddo
+
 end subroutine rhs_impl_2nd
 
 
 !-------------------------------------------------------------------------------
 ! Nonlinear, penality and forcing terms of the momentum equation, explicit
 ! 2d case, 2nd order finite differences
-! INPUT/OUTPUT as in cal_nl_expl 
+! INPUT/OUTPUT as in cal_nl_expl
 !-------------------------------------------------------------------------------
 subroutine rhs_impl_2nd_2d(time,u,rhs,work,mask,mask_color,us,Insect,beams)
   use vars
   use insect_module
   use solid_model
   use ghosts
-  
+
   implicit none
   real(kind=pr),intent(in)::time
   real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
@@ -496,8 +498,8 @@ subroutine rhs_impl_2nd_2d(time,u,rhs,work,mask,mask_color,us,Insect,beams)
   real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   type(solid),dimension(1:nBeams),intent(inout)::beams
-  type(diptera),intent(inout)::Insect 
-  
+  type(diptera),intent(inout)::Insect
+
   integer::ix,iy,iz
   real(kind=pr)::uy,uz,vorx,uydz,uzdy,&
   dyinv,dzinv,dy2inv,dz2inv,penaly,penalz
@@ -512,34 +514,34 @@ subroutine rhs_impl_2nd_2d(time,u,rhs,work,mask,mask_color,us,Insect,beams)
   ! Inverse grid step
   dyinv = 1.d0/(2.d0*dy)
   dzinv = 1.d0/(2.d0*dz)
-  
+
   dy2inv = 1.d0/(dy*dy)
   dz2inv = 1.d0/(dz*dz)
-  
+
   ix=0
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
       ! Velocity components
       uy = u(ix,iy,iz,2)
       uz = u(ix,iy,iz,3)
-      
+
       ! Velocity gradient
       uydz = (u(ix,iy,iz+1,2) - u(ix,iy,iz-1,2))*dzinv
       uzdy = (u(ix,iy+1,iz,3) - u(ix,iy-1,iz,3))*dyinv
-      
+
       ! Vorticity
       vorx = uzdy - uydz
-      
+
       ! Penalty term
       penaly = -mask(ix,iy,iz)*(uy-us(ix,iy,iz,2))
       penalz = -mask(ix,iy,iz)*(uz-us(ix,iy,iz,3))
- 
+
       ! Sum of nonlinear, penality and forcing terms
       rhs(ix,iy,iz,1) = 0.d0
       rhs(ix,iy,iz,2) = +uz*vorx + penaly + forcing(2)
       rhs(ix,iy,iz,3) = -uy*vorx + penalz + forcing(3)
     enddo
-  enddo     
+  enddo
 
 end subroutine rhs_impl_2nd_2d
 
@@ -604,7 +606,7 @@ subroutine impl_lin(time,dt,u,u0)
       do iz=ga(3),gb(3)
         !zz = dble(iz)*dz
         do iy=ga(2),gb(2)
-          !xx = dble(ix)*dx 
+          !xx = dble(ix)*dx
           ! Vector to be processed
           utmpx(:) = u(gadir:gbdir,iy,iz,ic)
           ! Constant vector
@@ -615,7 +617,7 @@ subroutine impl_lin(time,dt,u,u0)
           ! Vector returned
           u(radir:rbdir,iy,iz,ic) = utmpx(radir:rbdir)
         enddo
-      enddo    
+      enddo
     enddo
     ! Synchronize ghost points
     call synchronize_ghosts_FD_x_serial (u(:,:,:,:),3)
@@ -631,7 +633,7 @@ subroutine impl_lin(time,dt,u,u0)
   gadir = ga(2)
   gbdir = gb(2)
   ! Cases if # subdomains = 1 or >=2
-  if (mpiszdir>1) then 
+  if (mpiszdir>1) then
     ! Parallel 1d solver init
     call impl_lin_1d_mpi_init (mpicommdir,mpiszdir,mpirankdir,h2inv,radir,rbdir,dt,&
                                difcoef,bcmaty,cndiagy,bcipivy,vly,vry)
@@ -641,7 +643,7 @@ subroutine impl_lin(time,dt,u,u0)
       do iz = ga(3),gb(3)
         !zz = dble(iz)*dz
         do ix = ga(1),gb(1)
-          !xx = dble(ix)*dx 
+          !xx = dble(ix)*dx
           ! Vector to be processed
           utmpy(:) = u(ix,gadir:gbdir,iz,ic)
           ! Constant vector
@@ -651,7 +653,7 @@ subroutine impl_lin(time,dt,u,u0)
                                        difcoef,bcmaty,cndiagy,bcipivy,vly,vry,utmpy,u0tmpy)
           ! Vector returned
           u(ix,radir:rbdir,iz,ic) = utmpy(radir:rbdir)
-        enddo 
+        enddo
       enddo
     enddo
     ! Synchronize ghost points
@@ -666,7 +668,7 @@ subroutine impl_lin(time,dt,u,u0)
       do iz=ga(3),gb(3)
         !zz = dble(iz)*dz
         do ix=ga(1),gb(1)
-          !xx = dble(ix)*dx 
+          !xx = dble(ix)*dx
           ! Vector to be processed
           utmpy(:) = u(ix,gadir:gbdir,iz,ic)
           ! Constant vector
@@ -677,7 +679,7 @@ subroutine impl_lin(time,dt,u,u0)
           ! Vector returned
           u(ix,radir:rbdir,iz,ic) = utmpy(radir:rbdir)
         enddo
-      enddo    
+      enddo
     enddo
     ! Synchronize ghost points
     call synchronize_ghosts_FD_y_serial (u(:,:,:,:),3)
@@ -693,7 +695,7 @@ subroutine impl_lin(time,dt,u,u0)
   gadir = ga(3)
   gbdir = gb(3)
   ! Cases if # subdomains = 1 or >=2
-  if (mpiszdir>1) then 
+  if (mpiszdir>1) then
     ! Parallel 1d solver init
     call impl_lin_1d_mpi_init (mpicommdir,mpiszdir,mpirankdir,h2inv,radir,rbdir,dt,&
                                difcoef,bcmatz,cndiagz,bcipivz,vlz,vrz)
@@ -703,7 +705,7 @@ subroutine impl_lin(time,dt,u,u0)
       do iy=ga(2),gb(2)
         !yy = dble(iy)*dy
         do ix=ga(1),gb(1)
-          !xx = dble(ix)*dx 
+          !xx = dble(ix)*dx
           ! Vector to be processed
           utmpz(:) = u(ix,iy,gadir:gbdir,ic)
           ! Constant vector
@@ -713,7 +715,7 @@ subroutine impl_lin(time,dt,u,u0)
                                        difcoef,bcmatz,cndiagz,bcipivz,vlz,vrz,utmpz,u0tmpz)
           ! Vector returned
           u(ix,iy,radir:rbdir,ic) = utmpz(radir:rbdir)
-        enddo 
+        enddo
       enddo
     enddo
   else
@@ -726,7 +728,7 @@ subroutine impl_lin(time,dt,u,u0)
       do iy=ga(2),gb(2)
         !yy = dble(iy)*dy
         do ix=ga(1),gb(1)
-          !xx = dble(ix)*dx 
+          !xx = dble(ix)*dx
           ! Vector to be processed
           utmpz(:) = u(ix,iy,gadir:gbdir,ic)
           ! Constant vector
@@ -737,7 +739,7 @@ subroutine impl_lin(time,dt,u,u0)
           ! Vector returned
           u(ix,iy,radir:rbdir,ic) = utmpz(radir:rbdir)
         enddo
-      enddo    
+      enddo
     enddo
   endif
 
@@ -783,7 +785,7 @@ end subroutine factorize_loc1d
 !      ipiv: pivot element indices
 !      rhs: right-hand size
 ! OUTPUT:
-!      x: solution of mat*x=rhs 
+!      x: solution of mat*x=rhs
 !-------------------------------------------------------------------------------
 subroutine solve_loc1d (mat,ipiv,rhs,x,nn)
   use vars
@@ -794,12 +796,12 @@ subroutine solve_loc1d (mat,ipiv,rhs,x,nn)
   real(kind=pr),intent(inout) :: x(1:nn)
   real(kind=pr),intent(inout) :: rhs(1:nn)
   real(kind=pr) :: t0
-  integer :: error 
+  integer :: error
 
   t0 = MPI_wtime()
   x = rhs
   call dgetrs ('N',nn,1,mat,nn,ipiv,x,nn,error)
-  if (error .ne. 0) then 
+  if (error .ne. 0) then
     write(*,*) "!!! Fatal: dgetrs error.", error
     call abort()
   endif
@@ -839,7 +841,7 @@ end subroutine factorize_tri_loc1d
 !      diag: matrix factorization
 !      rhs: right-hand size
 ! OUTPUT:
-!      x: solution of diag*x=rhs 
+!      x: solution of diag*x=rhs
 !-------------------------------------------------------------------------------
 subroutine solve_tri_loc1d (diag,rhs,x,nn)
   use vars
@@ -849,12 +851,12 @@ subroutine solve_tri_loc1d (diag,rhs,x,nn)
   real(kind=pr),intent(inout) :: x(1:nn)
   real(kind=pr),intent(inout) :: rhs(1:nn)
   real(kind=pr) :: t0
-  integer :: error 
+  integer :: error
 
   t0 = MPI_wtime()
   x = rhs
   call dpttrs (nn,1,diag(1:nn,1),diag(1:nn-1,2),x,nn,error)
-  if (error .ne. 0) then 
+  if (error .ne. 0) then
     write(*,*) "!!! Fatal: dpttrs error.", error
     call abort()
   endif
@@ -914,7 +916,7 @@ subroutine impl_lin_1d_mpi_init(mpicommdir,mpiszdir,mpirankdir,h2inv,radir,rbdir
   sendfoo(2) = vl(rbdir)
   sendfoo(3) = vr(radir)
   sendfoo(4) = vr(rbdir)
-  call MPI_GATHER (sendfoo,four,MPI_DOUBLE_PRECISION,recvfoo,four,MPI_DOUBLE_PRECISION,zero,mpicommdir,mpicode) 
+  call MPI_GATHER (sendfoo,four,MPI_DOUBLE_PRECISION,recvfoo,four,MPI_DOUBLE_PRECISION,zero,mpicommdir,mpicode)
   do j = 1,mpiszdir
     vl1(j) = recvfoo(4*j-3)
     vlN(j) = recvfoo(4*j-2)
@@ -931,7 +933,7 @@ subroutine impl_lin_1d_mpi_init(mpicommdir,mpiszdir,mpirankdir,h2inv,radir,rbdir
         bcmat(2*j,2*j) = 1.d0
         bcmat(2*j,modulo(2*j-3,2*mpiszdir)+1) = vlN(j)
         bcmat(2*j,modulo(2*j,2*mpiszdir)+1) = vrN(j)
-    enddo   
+    enddo
     ! Factorize the BC influence matrix
     call factorize_loc1d (bcmat,bcipiv,2*mpiszdir)
   endif
@@ -960,7 +962,7 @@ subroutine impl_lin_1d_mpi_solver(mpicommdir,mpiszdir,mpirankdir,h2inv,radir,rbd
                    rhs(radir:rbdir),vf(radir:rbdir),bcxls(mpiszdir),&
                    bcxrs(mpiszdir),vf1(mpiszdir),vfN(mpiszdir)
   integer :: zero=0,two=2
-  
+
   ! Crank-Nicolson explicit part
   rhs(:) = utmp(radir:rbdir)-0.5d0*dt*difcoef*(u0tmp((radir-1):(rbdir-1))-2.d0*u0tmp(radir:rbdir)+u0tmp((radir+1):(rbdir+1)))*h2inv
   ! Solve local system
@@ -968,7 +970,7 @@ subroutine impl_lin_1d_mpi_solver(mpicommdir,mpiszdir,mpirankdir,h2inv,radir,rbd
   ! Communicate rhs to rank 0 in the line
   shortfoo(1) = vf(radir)
   shortfoo(2) = vf(rbdir)
-  call MPI_GATHER (shortfoo,two,MPI_DOUBLE_PRECISION,longfoo,two,MPI_DOUBLE_PRECISION,zero,mpicommdir,mpicode) 
+  call MPI_GATHER (shortfoo,two,MPI_DOUBLE_PRECISION,longfoo,two,MPI_DOUBLE_PRECISION,zero,mpicommdir,mpicode)
   do j = 1,mpiszdir
     vf1(j) = longfoo(2*j-1)
     vfN(j) = longfoo(2*j)
@@ -992,7 +994,7 @@ subroutine impl_lin_1d_mpi_solver(mpicommdir,mpiszdir,mpirankdir,h2inv,radir,rbd
     longfoo(2*j-1) = bcxls(j)
     longfoo(2*j) = bcxrs(j)
   enddo
-  call MPI_SCATTER (longfoo,two,MPI_DOUBLE_PRECISION,shortfoo,two,MPI_DOUBLE_PRECISION,zero,mpicommdir,mpicode) 
+  call MPI_SCATTER (longfoo,two,MPI_DOUBLE_PRECISION,shortfoo,two,MPI_DOUBLE_PRECISION,zero,mpicommdir,mpicode)
   bcxl = shortfoo(1)
   bcxr = shortfoo(2)
   ! Superpose local solution and BC influence
@@ -1137,7 +1139,7 @@ subroutine GM_pressure_update(uold,u)
 
   ! Synchronize ghost points
   call synchronize_ghosts(u(:,:,:,4))
- 
+
 end subroutine GM_pressure_update
 
 
@@ -1229,7 +1231,7 @@ subroutine GM_pressure(dt,fld,u,work)
     do iz=ga(3),gb(3)
       !zz = dble(iz)*dz
       do iy=ga(2),gb(2)
-        !xx = dble(ix)*dx 
+        !xx = dble(ix)*dx
         ! Vector to be processed
         utmpx(:) = work(gadir:gbdir,iy,iz,1)
         ! Solve linear system
@@ -1237,7 +1239,7 @@ subroutine GM_pressure(dt,fld,u,work)
                                   det0,cndiagx,vlx,vrx,utmpx)
         ! Vector returned
         work(radir:rbdir,iy,iz,1) = utmpx(radir:rbdir)
-      enddo    
+      enddo
     enddo
     ! Synchronize ghost points
     call synchronize_ghosts_FD_x_serial (work(:,:,:,:),1)
@@ -1261,7 +1263,7 @@ subroutine GM_pressure(dt,fld,u,work)
     do iz = ga(3),gb(3)
       !zz = dble(iz)*dz
       do ix = ga(1),gb(1)
-        !xx = dble(ix)*dx 
+        !xx = dble(ix)*dx
         ! Vector to be processed
         utmpy(:) = work(ix,gadir:gbdir,iz,1)
         ! Solve linear system
@@ -1281,7 +1283,7 @@ subroutine GM_pressure(dt,fld,u,work)
     do iz=ga(3),gb(3)
       !zz = dble(iz)*dz
       do ix=ga(1),gb(1)
-        !xx = dble(ix)*dx 
+        !xx = dble(ix)*dx
         ! Vector to be processed
         utmpy(:) = work(ix,gadir:gbdir,iz,1)
         ! Solve linear system
@@ -1289,7 +1291,7 @@ subroutine GM_pressure(dt,fld,u,work)
                                   det0,cndiagy,vly,vry,utmpy)
         ! Vector returned
         work(ix,radir:rbdir,iz,1) = utmpy(radir:rbdir)
-      enddo    
+      enddo
     enddo
     ! Synchronize ghost points
     call synchronize_ghosts_FD_y_serial (work(:,:,:,:),1)
@@ -1305,7 +1307,7 @@ subroutine GM_pressure(dt,fld,u,work)
   gadir = ga(3)
   gbdir = gb(3)
   ! Cases if # subdomains = 1 or >=2
-  if (mpiszdir>1) then 
+  if (mpiszdir>1) then
     ! Parallel 1d solver init
     call gm_1d_mpi_init (mpicommdir,mpiszdir,mpirankdir,h2inv,radir,rbdir,&
                          bcmatz,cndiagz,bcipivz,vlz,vrz)
@@ -1313,7 +1315,7 @@ subroutine GM_pressure(dt,fld,u,work)
     do iy=ga(2),gb(2)
       !yy = dble(iy)*dy
       do ix=ga(1),gb(1)
-        !xx = dble(ix)*dx 
+        !xx = dble(ix)*dx
         ! Vector to be processed
         utmpz(:) = work(ix,iy,gadir:gbdir,1)
         call gm_1d_mpi_solver (mpicommdir,mpiszdir,mpirankdir,radir,rbdir,gadir,gbdir,&
@@ -1330,7 +1332,7 @@ subroutine GM_pressure(dt,fld,u,work)
     do iy=ga(2),gb(2)
       !yy = dble(iy)*dy
       do ix=ga(1),gb(1)
-        !xx = dble(ix)*dx 
+        !xx = dble(ix)*dx
         ! Vector to be processed
         utmpz(:) = work(ix,iy,gadir:gbdir,1)
         ! Solve linear system
@@ -1338,7 +1340,7 @@ subroutine GM_pressure(dt,fld,u,work)
                                   det0,cndiagz,vlz,vrz,utmpz)
         ! Vector returned
         work(ix,iy,radir:rbdir,1) = utmpz(radir:rbdir)
-      enddo    
+      enddo
     enddo
   endif
 
@@ -1402,7 +1404,7 @@ subroutine gm_1d_mpi_init(mpicommdir,mpiszdir,mpirankdir,h2inv,radir,rbdir,&
   sendfoo(2) = vl(rbdir)
   sendfoo(3) = vr(radir)
   sendfoo(4) = vr(rbdir)
-  call MPI_GATHER (sendfoo,four,MPI_DOUBLE_PRECISION,recvfoo,four,MPI_DOUBLE_PRECISION,zero,mpicommdir,mpicode) 
+  call MPI_GATHER (sendfoo,four,MPI_DOUBLE_PRECISION,recvfoo,four,MPI_DOUBLE_PRECISION,zero,mpicommdir,mpicode)
   do j = 1,mpiszdir
     vl1(j) = recvfoo(4*j-3)
     vlN(j) = recvfoo(4*j-2)
@@ -1419,7 +1421,7 @@ subroutine gm_1d_mpi_init(mpicommdir,mpiszdir,mpirankdir,h2inv,radir,rbdir,&
         bcmat(2*j,2*j) = 1.d0
         bcmat(2*j,modulo(2*j-3,2*mpiszdir)+1) = vlN(j)
         bcmat(2*j,modulo(2*j,2*mpiszdir)+1) = vrN(j)
-    enddo   
+    enddo
     ! Factorize the BC influence matrix
     call factorize_loc1d (bcmat,bcipiv,2*mpiszdir)
   endif
@@ -1447,7 +1449,7 @@ subroutine gm_1d_mpi_solver(mpicommdir,mpiszdir,mpirankdir,radir,rbdir,gadir,gbd
                    rhs(radir:rbdir),vf(radir:rbdir),bcxls(mpiszdir),&
                    bcxrs(mpiszdir),vf1(mpiszdir),vfN(mpiszdir)
   integer :: two=2,zero=0
-  
+
   ! Set RHS
   rhs(:) = utmp(radir:rbdir)
   ! Solve local system
@@ -1455,7 +1457,7 @@ subroutine gm_1d_mpi_solver(mpicommdir,mpiszdir,mpirankdir,radir,rbdir,gadir,gbd
   ! Communicate rhs to rank 0 in the line
   shortfoo(1) = vf(radir)
   shortfoo(2) = vf(rbdir)
-  call MPI_GATHER (shortfoo,two,MPI_DOUBLE_PRECISION,longfoo,two,MPI_DOUBLE_PRECISION,zero,mpicommdir,mpicode) 
+  call MPI_GATHER (shortfoo,two,MPI_DOUBLE_PRECISION,longfoo,two,MPI_DOUBLE_PRECISION,zero,mpicommdir,mpicode)
   do j = 1,mpiszdir
     vf1(j) = longfoo(2*j-1)
     vfN(j) = longfoo(2*j)
@@ -1479,7 +1481,7 @@ subroutine gm_1d_mpi_solver(mpicommdir,mpiszdir,mpirankdir,radir,rbdir,gadir,gbd
     longfoo(2*j-1) = bcxls(j)
     longfoo(2*j) = bcxrs(j)
   enddo
-  call MPI_SCATTER (longfoo,two,MPI_DOUBLE_PRECISION,shortfoo,two,MPI_DOUBLE_PRECISION,zero,mpicommdir,mpicode) 
+  call MPI_SCATTER (longfoo,two,MPI_DOUBLE_PRECISION,shortfoo,two,MPI_DOUBLE_PRECISION,zero,mpicommdir,mpicode)
   bcxl = shortfoo(1)
   bcxr = shortfoo(2)
   ! Superpose local solution and BC influence
@@ -1560,4 +1562,3 @@ subroutine gm_1d_serial_solver(radir,rbdir,gadir,gbdir,&
   ! Corrected vector
   utmp(radir:rbdir) = vf - (detl*vl+detr*vr)/det0
 end subroutine gm_1d_serial_solver
-

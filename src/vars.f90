@@ -179,6 +179,13 @@ module vars
   type(Integrals),save :: GlobalIntegrals
   type(SolidDynType), save :: SolidDyn
 
+  interface abort
+    module procedure abort1, abort2, abort4, abort3
+  end interface
+
+  interface on_proc
+    module procedure on_proc1, on_proc2
+  end interface
 
   !-----------------------------------------------------------------------------
   ! Small helper functions
@@ -226,6 +233,51 @@ module vars
       if (mpirank==0) write(*,*) msg
       call MPI_abort(MPI_COMM_WORLD,666,mpicode)
     end subroutine suicide2
+    !---------------------------------------------------------------------------
+    ! abort run, with or without bye-bye message
+    !---------------------------------------------------------------------------
+    subroutine abort1
+      use mpi
+      implicit none
+      integer :: mpicode
+
+      if (mpirank==0) write(*,*) "Killing run..."
+      call MPI_abort(MPI_COMM_WORLD,666,mpicode)
+    end subroutine abort1
+    !---------------------------------------------------------------------------
+    subroutine abort2(msg)
+      use mpi
+      implicit none
+      integer :: mpicode
+      character(len=*), intent(in) :: msg
+
+      if (mpirank==0) write(*,*) "Killing run..."
+      if (mpirank==0) write(*,*) msg
+      call MPI_abort(MPI_COMM_WORLD,666,mpicode)
+    end subroutine abort2
+    !---------------------------------------------------------------------------
+    subroutine abort3(code)
+      use mpi
+      implicit none
+      integer, intent(in) :: code
+      integer :: mpicode
+
+      if (mpirank==0) write(*,*) "Killing run..."
+      call MPI_abort(MPI_COMM_WORLD,code,mpicode)
+    end subroutine abort3
+    !---------------------------------------------------------------------------
+    subroutine abort4(code,msg)
+      use mpi
+      implicit none
+      integer :: mpicode
+      integer, intent(in) :: code
+      character(len=*), intent(in) :: msg
+
+      if (mpirank==0) write(*,*) "Killing run..."
+      if (mpirank==0) write(*,*) msg
+      call MPI_abort(MPI_COMM_WORLD,code,mpicode)
+    end subroutine abort4
+
     !---------------------------------------------------------------------------
     ! wrapper for NaN checking (this may be compiler dependent)
     logical function is_nan( x )
@@ -277,4 +329,51 @@ module vars
       cross(3) = a(1)*b(2)-a(2)*b(1)
     end function
     !---------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+  ! check wether real coordinates x are in the domain
+  !---------------------------------------------------------------------------
+  logical function in_domain1( x )
+    implicit none
+    real(kind=pr),intent(in)::x(1:3)
+    in_domain1 = .false.
+    if ( ((x(1)>=0.d0).and.(x(1)<xl)).and.&
+         ((x(2)>=0.d0).and.(x(2)<yl)).and.&
+         ((x(3)>=0.d0).and.(x(3)<zl)) ) in_domain1=.true.
+  end function
+
+  !---------------------------------------------------------------------------
+  ! check wether integer coordinates x are in the domain
+  !---------------------------------------------------------------------------
+  logical function in_domain2( x )
+    implicit none
+    integer,intent(in)::x(1:3)
+    in_domain2 = .false.
+    if (  ((x(1)>=0).and.(x(1)<nx-1)).and.&
+          ((x(2)>=0).and.(x(2)<ny-1)).and.&
+          ((x(3)>=0).and.(x(3)<nz-1)) ) in_domain2=.true.
+  end function
+
+  !---------------------------------------------------------------------------
+  ! check wether real coordinates x are on this mpi-process
+  !---------------------------------------------------------------------------
+  logical function on_proc1( x )
+    implicit none
+    real(kind=pr),intent(in)::x(1:3)
+    on_proc1 = .false.
+    if (  ((x(1)>=ra(1)*dx).and.(x(1)<=rb(1)*dx)).and.&
+          ((x(2)>=ra(2)*dy).and.(x(2)<=rb(2)*dy)).and.&
+          ((x(3)>=ra(3)*dz).and.(x(3)<=rb(3)*dz)) ) on_proc1=.true.
+  end function
+
+  !---------------------------------------------------------------------------
+  ! check wether integer coordinates x are on this mpi-process
+  !---------------------------------------------------------------------------
+  logical function on_proc2( x )
+    implicit none
+    integer,intent(in)::x(1:3)
+    on_proc2 = .false.
+    if ( ((x(1)>=ra(1)).and.(x(1)<=rb(1))).and.&
+         ((x(2)>=ra(2)).and.(x(2)<=rb(2))).and.&
+         ((x(3)>=ra(3)).and.(x(3)<=rb(3))) ) on_proc2=.true.
+  end function
 end module vars

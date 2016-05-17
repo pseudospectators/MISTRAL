@@ -209,14 +209,16 @@ end subroutine
 !-------------------------------------------------------------------------------
 subroutine read_insect_parameters( PARAMS,Insect )
   use vars
-  use ini_files_parser_mpi
   use insect_module
+  use ini_files_parser_mpi
   implicit none
 
   type(diptera),intent(inout) :: Insect
-  ! this array contains the entire ascii-params file
-  type(inifile) :: PARAMS
+  integer :: j, tmp
+  ! Contains the ascii-params file
+  type(inifile), intent(inout) :: PARAMS
   real(kind=pr),dimension(1:3)::defaultvec
+  character(len=strlen) :: DoF_string
 
   call read_param_mpi(PARAMS,"Insects","WingShape",Insect%WingShape,"none")
   call read_param_mpi(PARAMS,"Insects","b_top",Insect%b_top, 0.d0)
@@ -225,7 +227,66 @@ subroutine read_insect_parameters( PARAMS,Insect )
   call read_param_mpi(PARAMS,"Insects","L_span",Insect%L_span, 0.d0)
   call read_param_mpi(PARAMS,"Insects","FlappingMotion_right",Insect%FlappingMotion_right,"none")
   call read_param_mpi(PARAMS,"Insects","FlappingMotion_left",Insect%FlappingMotion_left,"none")
+  ! this file is used in old syntax form for both wings:
+  call read_param_mpi(PARAMS,"Insects","infile",Insect%infile,"none.in")
+
+  !-----------------------------------------------------------------------------
+  ! compatibility for wingbeat kinematics read from file
+  !-----------------------------------------------------------------------------
+
+  if ( index(Insect%FlappingMotion_right,"from_file::") /= 0 ) then
+    ! new syntax, uses fourier/hermite periodic kinematics read from *.ini file
+    Insect%kine_wing_r%infile = Insect%FlappingMotion_right( 12:strlen  )
+    Insect%FlappingMotion_right = "from_file"
+
+  elseif ( index(Insect%FlappingMotion_right,"kinematics_loader::") /= 0 ) then
+    ! new syntax, uses the kinematics loader for non-periodic kinematics
+    Insect%kine_wing_r%infile = Insect%FlappingMotion_right( 20:strlen )
+    Insect%FlappingMotion_right = "kinematics_loader"
+
+  elseif ( Insect%FlappingMotion_right == "from_file" ) then
+    ! old syntax, implies symmetric periodic motion, read from *.ini file
+    Insect%kine_wing_r%infile = Insect%infile
+
+  elseif ( Insect%FlappingMotion_right == "kinematics_loader" ) then
+    ! old syntax, implies symmetric non-periodic motion, read from *.dat file
+    Insect%kine_wing_r%infile = Insect%infile
+  endif
+
+
+  if ( index(Insect%FlappingMotion_left,"from_file::") /= 0 ) then
+    ! new syntax, uses fourier/hermite periodic kinematics read from *.ini file
+    Insect%kine_wing_l%infile = Insect%FlappingMotion_left( 12:strlen  )
+    Insect%FlappingMotion_left = "from_file"
+
+  elseif ( index(Insect%FlappingMotion_left,"kinematics_loader::") /= 0 ) then
+    ! new syntax, uses the kinematics loader for non-periodic kinematics
+    Insect%kine_wing_l%infile = Insect%FlappingMotion_left( 20:strlen )
+    Insect%FlappingMotion_left = "kinematics_loader"
+
+  elseif ( Insect%FlappingMotion_left == "from_file" ) then
+    ! old syntax, implies symmetric periodic motion, read from *.ini file
+    Insect%kine_wing_l%infile = Insect%infile
+
+  elseif ( Insect%FlappingMotion_left == "kinematics_loader" ) then
+    ! old syntax, implies symmetric non-periodic motion, read from *.dat file
+    Insect%kine_wing_l%infile = Insect%infile
+  endif
+
+  if (root) then
+    write(*,*) "Left wing: "//trim(adjustl(Insect%FlappingMotion_left))
+    write(*,*) "Left wing: "//trim(adjustl(Insect%kine_wing_l%infile))
+    write(*,*) "Right wing: "//trim(adjustl(Insect%FlappingMotion_right))
+    write(*,*) "Right wing: "//trim(adjustl(Insect%kine_wing_r%infile))
+  endif
+
+  ! these flags trigger reading the kinematics from file when the Flapping
+  ! motion is first called
+  Insect%kine_wing_l%initialized = .false.
+  Insect%kine_wing_r%initialized = .false.
+
   call read_param_mpi(PARAMS,"Insects","BodyType",Insect%BodyType,"ellipsoid")
+  call read_param_mpi(PARAMS,"Insects","HasDetails",Insect%HasDetails,"all")
   call read_param_mpi(PARAMS,"Insects","BodyMotion",Insect%BodyMotion,"yes")
   call read_param_mpi(PARAMS,"Insects","LeftWing",Insect%LeftWing,"yes")
   call read_param_mpi(PARAMS,"Insects","RightWing",Insect%RightWing,"yes")
@@ -233,25 +294,52 @@ subroutine read_insect_parameters( PARAMS,Insect )
   call read_param_mpi(PARAMS,"Insects","L_body",Insect%L_body, 1.d0)
   call read_param_mpi(PARAMS,"Insects","R_head",Insect%R_head, 0.1d0)
   call read_param_mpi(PARAMS,"Insects","R_eye",Insect%R_eye, 0.d1)
-  call read_param_mpi(PARAMS,"Insects","distance_from_sponge",Insect%distance_from_sponge, 1.d0)
-  call read_param_mpi(PARAMS,"Insects","WingThickness",Insect%WingThickness, 4.0*dx)
-  ! wing inertia tensor (we currentlz assume two identical wings)
+  call read_param_mpi(PARAMS,"Insects","mass",Insect%mass, 1.d0)
+  call read_param_mpi(PARAMS,"Insects","gravity",Insect%gravity, 1.d0)
+  call read_param_mpi(PARAMS,"Insects","WingThickness",Insect%WingThickness, 4.0d0*dx)
+  call read_param_mpi(PARAMS,"Insects","J_body_yawpitchroll",defaultvec, (/0.d0,0.d0,0.d0/))
+  Insect%Jroll_body  = defaultvec(3)
+  Insect%Jyaw_body   = defaultvec(1)
+  Insect%Jpitch_body = defaultvec(2)
+  call read_param_mpi(PARAMS,"Insects","x0",Insect%x0, (/0.5d0*xl,0.5d0*yl,0.5d0*zl/))
+  call read_param_mpi(PARAMS,"Insects","v0",Insect%v0, (/0.d0, 0.d0, 0.d0/))
+  call read_param_mpi(PARAMS,"Insects","yawpitchroll_0",Insect%yawpitchroll_0,&
+  (/0.d0, 0.d0, 0.d0/))
+  ! convert yawpitchroll to radiants
+  Insect%yawpitchroll_0 = Insect%yawpitchroll_0 * (pi/180.d0)
+  call read_param_mpi(PARAMS,"Insects","eta0",Insect%eta0, 0.0d0)
+  Insect%eta0 = Insect%eta0*(pi/180.d0)
+
+
+  ! degrees of freedom for free flight solver. The string from ini file contains
+  ! 6 characters 1 or 0 that turn on/off x,y,z,yaw,pitch,roll degrees of freedom
+  ! by multiplying the respective RHS by zero, keeping the value thus constant
+  call read_param_mpi(PARAMS,"Insects","DoF",DoF_string, "111111")
+  do j=1,6
+    read (DoF_string(j:j), '(i1)') tmp
+    Insect%DoF_on_off(j) = dble(tmp)
+  enddo
+  if (root) write(*,'(6(f4.2,1x))') Insect%DoF_on_off
+
+
+  ! wing inertia tensor (we currently assume two identical wings)
   ! this allows computing inertial power
   call read_param_mpi(PARAMS,"Insects","Jxx",Insect%Jxx,0.d0)
   call read_param_mpi(PARAMS,"Insects","Jyy",Insect%Jyy,0.d0)
   call read_param_mpi(PARAMS,"Insects","Jzz",Insect%Jzz,0.d0)
   call read_param_mpi(PARAMS,"Insects","Jxy",Insect%Jxy,0.d0)
-  call read_param_mpi(PARAMS,"Insects","infile",Insect%infile,"none.in")
+
+  call read_param_mpi(PARAMS,"Insects","startup_conditioner",Insect%startup_conditioner,"no")
 
   ! position vector of the head
   call read_param_mpi(PARAMS,"Insects","x_head",&
-       Insect%x_head, (/0.5*Insect%L_body,0.d0,0.d0 /) )
+  Insect%x_head, (/0.5d0*Insect%L_body,0.d0,0.d0 /) )
 
   ! eyes
-  defaultvec = Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8*(/1.,+1.,1./)
+  defaultvec = Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8d0*(/1.0d0,+1.0d0,1.0d0/)
   call read_param_mpi(PARAMS,"Insects","x_eye_r",Insect%x_eye_r, defaultvec)
 
-  defaultvec = Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8*(/1.,-1.,1./)
+  defaultvec = Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8d0*(/1.0d0,-1.0d0,1.0d0/)
   call read_param_mpi(PARAMS,"Insects","x_eye_l",Insect%x_eye_l, defaultvec)
 
   ! wing hinges (root points)
@@ -261,34 +349,7 @@ subroutine read_insect_parameters( PARAMS,Insect )
   defaultvec=(/0.d0, -Insect%b_body, 0.d0 /)
   call read_param_mpi(PARAMS,"Insects","x_pivot_r",Insect%x_pivot_r, defaultvec)
 
-  Insect%smooth = 2.0*dz
-
-  ! flag: read kinematics from file (Dmitry, 14 Nov 2013)
-  call read_param_mpi(PARAMS,"Insects","KineFromFile",Insect%KineFromFile,"no")
-
-
-  ! Takeoff
-  call read_param_mpi(PARAMS,"Insects","x_takeoff",Insect%x_takeoff, 2.0d0)
-  call read_param_mpi(PARAMS,"Insects","z_takeoff",Insect%z_takeoff, 0.86d0)
-  call read_param_mpi(PARAMS,"Insects","mass_solid",&
-       Insect%mass_solid, 54.414118839786745d0)
-  call read_param_mpi(PARAMS,"Insects","gravity",&
-       Insect%gravity, -0.055129281110537755d0)
-  call read_param_mpi(PARAMS,"Insects","eta_stroke",Insect%eta_stroke,0.d0)
-
-  ! Legs model parameters
-  call read_param_mpi(PARAMS,"Insects","ilegs",Insect%ilegs, 1)
-  call read_param_mpi(PARAMS,"Insects","anglegsend",&
-       Insect%anglegsend, 0.7853981633974483d0)
-  call read_param_mpi(PARAMS,"Insects","kzlegsmax",&
-       Insect%kzlegsmax,64.24974647375242d0)
-  call read_param_mpi(PARAMS,"Insects","dzlegsmax",&
-       Insect%dzlegsmax,0.2719665271966527d0)
-  call read_param_mpi(PARAMS,"Insects","t0legs",&
-       Insect%t0legs,0.13643141797265643d0)
-  call read_param_mpi(PARAMS,"Insects","tlinlegs",&
-       Insect%tlinlegs,0.3547216867289067d0)
-
+  Insect%smooth = 2.0d0*dz
 end subroutine read_insect_parameters
 
 
