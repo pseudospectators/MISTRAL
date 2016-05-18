@@ -89,7 +89,7 @@ subroutine Start_Simulation()
   time_insect_body=0.d0;
   time_insect_wings=0.d0; time_insect_vel=0.d0
   time_solid=0.d0; time_drag=0.d0; time_surf=0.d0; time_LAPACK=0.d0
-  time_hdf5=0.d0; time_integrals=0.d0; time_rhs=0.d0
+  time_hdf5=0.d0; time_integrals=0.d0; time_rhs=0.d0; time_sync=0.d0
 
   if (root) then
      write(*,'(A)') '--------------------------------------'
@@ -260,7 +260,7 @@ subroutine Start_Simulation()
   ! Show the breakdown of timing information
   !-------------------------
   t2 = MPI_wtime() - t1
-  if (root) call show_timings(t2)
+  call show_timings(t2)
 end subroutine Start_Simulation
 
 
@@ -269,43 +269,80 @@ end subroutine Start_Simulation
 ! Output information on where the algorithm spent the most time.
 subroutine show_timings(t2)
   use vars
+  use helpers
   implicit none
   real (kind=pr) :: t2
+  real(kind=pr) :: a1,a2,a3,a4,a5
 
 3 format(80("-"))
-8 format(es12.4," (",f5.1,"%) :: ",A)
+8 format(es12.4," (",f5.1,"%) [max=",es12.4," min=",es12.4," avg=",es12.4 "]:: ",A)
 
 
-  write(*,3)
-  write(*,'("*** Timings")')
-  write(*,3)
-  write(*,'("time stepping (top level tasks)")')
+  if(root) write(*,3)
+  if(root) write(*,'("*** Timings")')
+  if(root) write(*,3)
+  if(root) write(*,'("time stepping (top level tasks)")')
 
-  write(*,8) time_fluid, 100.d0*time_fluid/t2, "fluid time stepping"
-  write(*,8) time_integrals, 100.d0*time_integrals/t2, "integrals"
-  write(*,8) time_save, 100.d0*time_save/t2, "save fields"
-  write(*,8) time_bckp, 100.d0*time_bckp/t2, "backuping"
-  write(*,3)
-  write(*,'("Create Mask:")')
-  write(*,8) time_insect_body, 100.d0*time_insect_body/t2, "insect::body"
-  write(*,8) time_insect_wings,100.d0*time_insect_wings/t2,"insect::wings"
-  write(*,8) time_insect_vel,100.d0*time_insect_vel/t2,"insect::roration"
-  write(*,3)
-  write(*,'("save fields:")')
-  write(*,8) time_hdf5, 100.d0*time_hdf5/t2, "hdf5 disk dumping"
-  write(*,3)
+  a1=time_fluid ; a2=100.d0*time_fluid/t2; a3=mpimax(time_fluid); a4=mpimin(time_fluid);
+   a5=mpisum(time_fluid)/dble(mpisize)
+  if(root) write(*,8) a1,a2,a3,a4,a5,"fluid time stepping"
 
-  write(*,'("Fluid time stepping:")')
-  write(*,8) time_mask, 100.d0*time_mask/t2, "create_mask"
-  write(*,8) time_rhs,100.d0*time_rhs/t2,"cal_nlk"
-  write(*,8) time_solid,100.d0*time_solid/t2,"solid  model"
-  write(*,8) time_surf,100.d0*time_surf/t2,"surface interpolation"
-  write(*,3)
+  a1=time_integrals ; a2=100.d0*time_integrals/t2; a3=mpimax(time_integrals); a4=mpimin(time_integrals);
+   a5=mpisum(time_integrals)/dble(mpisize)
+  if(root) write(*,8) a1,a2,a3,a4,a5, "integrals"
 
-  write(*,'("Total walltime ",es12.4," (",i7," CPUh)")') t2, nint( t2*dble(mpisize)/3600.d0 )
-  write(*,3)
-  write(*,'(A)') 'Finalizing computation....'
-  write(*,3)
+  a1=time_save ; a2=100.d0*time_save/t2; a3=mpimax(time_save); a4=mpimin(time_save);
+   a5=mpisum(time_save)/dble(mpisize)
+  if(root) write(*,8) a1,a2,a3,a4,a5, "save fields"
+
+  a1=time_bckp ; a2=100.d0*time_bckp/t2; a3=mpimax(time_bckp); a4=mpimin(time_bckp);
+   a5=mpisum(time_bckp)/dble(mpisize)
+  if(root) write(*,8) a1,a2,a3,a4,a5, "backuping"
+
+  if(root) write(*,3)
+
+  if(root) write(*,'("Create Mask:")')
+
+  a1=time_insect_body ; a2=100.d0*time_insect_body/t2; a3=mpimax(time_insect_body); a4=mpimin(time_insect_body);
+   a5=mpisum(time_insect_body)/dble(mpisize)
+  if(root) write(*,8) a1,a2,a3,a4,a5, "insect::body"
+
+  a1=time_insect_wings ; a2=100.d0*time_insect_wings/t2; a3=mpimax(time_insect_wings); a4=mpimin(time_insect_wings);
+   a5=mpisum(time_insect_wings)/dble(mpisize)
+  if(root) write(*,8) a1,a2,a3,a4,a5, "insect::wings"
+
+  a1=time_insect_vel ; a2=100.d0*time_insect_vel/t2; a3=mpimax(time_insect_vel); a4=mpimin(time_insect_vel);
+  a5=mpisum(time_insect_vel)/dble(mpisize)
+  if(root) write(*,8) a1,a2,a3,a4,a5, "insect::roration"
+
+  if(root) write(*,3)
+  if(root) write(*,'("save fields:")')
+  a1=time_hdf5 ; a2=100.d0*time_hdf5/t2; a3=mpimax(time_hdf5); a4=mpimin(time_hdf5);
+   a5=mpisum(time_hdf5)/dble(mpisize)
+  if(root) write(*,8) a1,a2,a3,a4,a5, "hdf5 disk dumping"
+
+  if(root) write(*,3)
+
+  if(root) write(*,'("Fluid time stepping:")')
+  a1=time_mask ; a2=100.d0*time_mask/t2; a3=mpimax(time_mask); a4=mpimin(time_mask);
+   a5=mpisum(time_mask)/dble(mpisize)
+  if(root) write(*,8) a1,a2,a3,a4,a5, "create_mask"
+
+  a1=time_rhs ; a2=100.d0*time_rhs/t2; a3=mpimax(time_rhs); a4=mpimin(time_rhs);
+   a5=mpisum(time_rhs)/dble(mpisize)
+  if(root) write(*,8) a1,a2,a3,a4,a5, "cal_nlk"
+
+
+  a1=time_sync ; a2=100.d0*time_sync/t2; a3=mpimax(time_sync); a4=mpimin(time_sync);
+   a5=mpisum(time_sync)/dble(mpisize)
+  if(root) write(*,8) a1,a2,a3,a4,a5, "synchronization"
+
+  if(root) write(*,3)
+
+  if(root) write(*,'("Total walltime ",es12.4," (",i7," CPUh)")') t2, nint( t2*dble(mpisize)/3600.d0 )
+  if(root) write(*,3)
+  if(root) write(*,'(A)') 'Finalizing computation....'
+  if(root) write(*,3)
 end subroutine show_timings
 
 
@@ -381,7 +418,7 @@ subroutine initialize_time_series_files()
 
   ! this file contains, time, iteration#, time step and performance
   open  (14,file='timestep.t',status='replace')
-  write (14,'(4(A15,1x))') "%            it","time","dt","avg sec/step", "sec/step"
+  write (14,'(5(A15,1x))') "%            it","time","dt","avg sec/step", "sec/step"
   close (14)
 
   open  (14,file='meanflow.t',status='replace')

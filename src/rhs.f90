@@ -228,10 +228,10 @@ subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams,impmode)
   ! fetch forcing term used to accelerate the mean flow
   call forcing_term(time,u,forcing)
 
-  a1 = 1.d0/12.d0
-  a2 =-2.d0/3.d0
-  a4 = 2.d0/3.d0
-  a5 = -1.d0/12.d0
+  ! a1 = 1.d0/12.d0
+  ! a2 =-2.d0/3.d0
+  ! a4 = 2.d0/3.d0
+  ! a5 = -1.d0/12.d0
 
 
   ! Tam & Webb, 4th order optimized
@@ -592,17 +592,17 @@ subroutine forcing_term(time,u,forcing)
     ! compute mean velocity in this direction
     ux_mean = volume_integral(u(:,:,:,1))/(xl*yl*zl)
     ! the force stabilizes around unity
-    forcing(1) = max(0.d0,1.d0-ux_mean)*startup_conditioner(time%time,0.d0,0.50d0)
+    forcing(1) = max(0.d0,uxmean-ux_mean)*startup_conditioner(time%time,0.d0,0.50d0)
   endif
 
   if (iMeanFlow_y=="accelerate_to_unity") then
     uy_mean = volume_integral(u(:,:,:,2))/(xl*yl*zl)
-    forcing(2) = max(0.d0,1.d0-uy_mean)*startup_conditioner(time%time,0.d0,0.50d0)
+    forcing(2) = max(0.d0,uymean-uy_mean)*startup_conditioner(time%time,0.d0,0.50d0)
   endif
 
   if (iMeanFlow_z=="accelerate_to_unity") then
     uz_mean = volume_integral(u(:,:,:,3))/(xl*yl*zl)
-    forcing(3) = max(0.d0,1.d0-uz_mean)*startup_conditioner(time%time,0.d0,0.50d0)
+    forcing(3) = max(0.d0,uzmean-uz_mean)*startup_conditioner(time%time,0.d0,0.50d0)
   endif
 
 end subroutine forcing_term

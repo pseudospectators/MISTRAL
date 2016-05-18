@@ -156,7 +156,7 @@ subroutine curl_x( u, rotu )
       endif
 
   case default
-      call suicide2('invalid METHOD in curl_x:'//method)
+      call abort('invalid METHOD in curl_x:'//method)
   end select
 end subroutine curl_x
 
@@ -255,7 +255,7 @@ subroutine divergence_x( u, divu )
       endif
 
   case default
-    call suicide2('invalid METHOD in divergence:'//method)
+    call abort('invalid METHOD in divergence:'//method)
   end select
 end subroutine divergence_x
 

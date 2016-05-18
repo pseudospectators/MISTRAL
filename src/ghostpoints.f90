@@ -36,8 +36,11 @@ subroutine synchronize_ghosts ( fld )
   ! it) have been filled previously. Here, we exchange only the ghosts
   use vars
   implicit none
+  reaL(kind=pr)::t1
   ! Input/output
   real(kind=pr),intent(inout) :: fld(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+
+  t1=MPI_wtime()
 
   ! x direction is always local, i.e. it is not split among MPI procs. In this
   ! direction, which is assumed PERIODIC at present, we can locally copy data
@@ -60,6 +63,8 @@ subroutine synchronize_ghosts ( fld )
   else
     call synchronize_ghosts_FD_z_serial (fld,1)
   endif
+
+  time_sync=time_sync+MPI_wtime()-t1
 end subroutine synchronize_ghosts
 
 
@@ -76,7 +81,8 @@ subroutine synchronize_ghosts_FD ( fld, nc )
   implicit none
   integer, intent(in) :: nc
   real(kind=pr), intent(inout) :: fld(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nc)
-
+  real(kind=pr)::t1
+  t1=MPI_wtime()
   ! x direction is always local, i.e. it is not split among MPI procs. In this
   ! direction, which is assumed PERIODIC at present, we can locally copy data
   call synchronize_ghosts_FD_x_serial (fld,nc)
@@ -97,6 +103,7 @@ subroutine synchronize_ghosts_FD ( fld, nc )
   else
     call synchronize_ghosts_FD_z_serial (fld,nc)
   endif
+  time_sync=time_sync+MPI_wtime()-t1
 end subroutine synchronize_ghosts_FD
 
 !-------------------------------------------------------------------------------

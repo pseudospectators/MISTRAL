@@ -14,7 +14,7 @@ subroutine get_params(paramsfile,Insect,verbose)
   type(inifile) :: PARAMS
 
   real(kind=pr), dimension(1:3) :: defaultvec
-  character(len=strlen) :: old_meanflow
+  character(len=strlen) :: old_meanflow,dummystr
 
 
   ! check if the specified file exists
@@ -130,7 +130,10 @@ subroutine get_params(paramsfile,Insect,verbose)
   if (iChannel=="1") iChannel="xy" ! for downward compatibility with older ini files
   call read_param_mpi(PARAMS,"Penalization","thick_wall",thick_wall,0.2d0)
   call read_param_mpi(PARAMS,"Penalization","pos_wall",pos_wall,0.3d0)
-
+  call read_param_mpi(PARAMS,"Penalization","periodic",dummystr,"no")
+  if (dummystr=="yes") then
+    periodic=.true.
+  endif
   !-----------------------------------------------------------------------------
   ! Geometry section
   !-----------------------------------------------------------------------------

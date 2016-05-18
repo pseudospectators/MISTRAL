@@ -84,7 +84,6 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
      ! Output FIELDS+BACKUPING (after tsave)
      !-------------------------------------------------
      if (((modulo(time%time,tsave)<time%dt_new).and.(time%time>=tsave_first)).or.(time%time==tmax)) then
-        call are_we_there_yet(time%it,time%it_start,time%time,t2,t1,time%dt_new)
         call save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
      endif
 
@@ -98,8 +97,8 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
      !-----------------------------------------------
      ! Output how much time remains
      !-----------------------------------------------
-     if ((modulo(time%it,300)==0).or.(time%it==20)) then
-        call are_we_there_yet(time%it,time%it_start,time%time,t2,t1,time%dt_new)
+     if (modulo(time%it,5)==0) then
+        call are_we_there_yet(time%time, t1, time%dt_new)
      endif
 
      !-------------------------------------------------
@@ -178,27 +177,25 @@ end subroutine save_time_stepping_info
 !-------------------------------------------------------------------------------
 ! Output how much time remains in the simulation.
 !-------------------------------------------------------------------------------
-subroutine are_we_there_yet(it,it_start,time,t2,t1,dt1)
+subroutine are_we_there_yet(time,wtime_tstart,dt1)
   use vars
   implicit none
 
-  real(kind=pr),intent(inout) :: time,t2,t1,dt1
-  integer,intent(inout) :: it,it_start
-  real(kind=pr):: time_left
+  real(kind=pr),intent(inout) :: time,wtime_tstart,dt1
+  real(kind=pr):: time_left, t2
 
-  ! This is done every 300 time steps, but it may happen that this is
-  ! too seldom or too often. in future versions, maybe we try doing it
-  ! once in an hour or so. We also output a first estimate after 20
-  ! time steps.
-  if(root) then
-     t2= MPI_wtime() - t1
-     time_left=(((tmax-time)/dt1)*(t2/dble(it-it_start)))
-     write(*,'("time left: ",i3,"d ",i2,"h ",i2,"m ",i2,"s wtime=",f4.1,"h dt=",es10.2,"s t=",es10.2)') &
-          floor(time_left/(24.d0*3600.d0))   ,&
-          floor(mod(time_left,24.*3600.d0)/3600.d0),&
-          floor(mod(time_left,3600.d0)/60.d0),&
-          floor(mod(mod(time_left,3600.d0),60.d0)),&
-          (MPI_wtime()-time_total)/3600.d0,&
-          dt1,time
+  if(mpirank==0) then
+    ! compute the time elapsed since the time stepping started
+    t2 = MPI_wtime() - wtime_tstart
+    ! compute (estimated) remaining time
+    time_left = (tmax-time) * (t2/(time-tstart))
+    ! print information
+    write(*,'("time left: ",i2,"d ",i2,"h ",i2,"m ",i2,"s wtime=",f4.1,"h dt=",es10.2,"s t=",g10.2)') &
+    floor(time_left/(24.d0*3600.d0))   ,&
+    floor(mod(time_left,24.d0*3600.d0)/3600.d0),&
+    floor(mod(time_left,3600.d0)/60.d0),&
+    floor(mod(mod(time_left,3600.d0),60.d0)),&
+    (MPI_wtime()-time_total)/3600.d0,&
+    dt1,time
   endif
 end subroutine are_we_there_yet

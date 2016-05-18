@@ -17,81 +17,112 @@ subroutine add_channel(mask,mask_color,us)
   integer::ix,iy,iz
   real(kind=pr)::x,y,z,usponge,H_eff,z_chan,dist
 
-  ! loop over the physical space
-  do iz = ra(3), rb(3)
-    do iy = ra(2), rb(2)
-       do ix = ra(1), rb(1)
-          !----------------
-          select case (iChannel)
-          case ("sponge2d")
-            y = dble(iy)*dy
-            z = dble(iz)*dz
+  select case (iChannel)
+  case ("sponge")
+    do iz = ra(3), rb(3)
+      do iy = ra(2), rb(2)
+        do ix = ra(1), rb(1)
+          x = dble(ix)*dx
+          y = dble(iy)*dy
+          z = dble(iz)*dz
 
-            dist =  minval( (/y,z,dabs(y-yl),dabs(z-zl)/) )
-            dist = dist - thick_wall
-            dist = -min( dist/thick_wall, 0.d0)
+          dist =  minval( (/x,y,z,dabs(y-yl),dabs(z-zl),dabs(x-xl)/) )
+          dist = dist - thick_wall
+          dist = -min( dist/thick_wall, 0.d0)
 
-            if (mask(ix,iy,iz)<=1.0d-10) then
-              mask(ix,iy,iz) = (dist**2) * eps / eps_sponge
-              us(ix,iy,iz,1:3) = (/uxmean,uymean,uzmean/)
-              mask_color(ix,iy,iz) = 0
-            endif
-
-          case ("xz")
-            ! Floor - xz solid wall between y_wall-thick_wall and y_wall
-            y = dble(iy)*dy
-            if ( (y>=pos_wall-thick_wall) .and. (y<=pos_wall) ) then
-              mask(ix,iy,iz) = 1.d0
-              us(ix,iy,iz,:) = 0.d0
-              ! external boxes have color 0 (important for forces)
-              mask_color(ix,iy,iz) = 0
-            endif
-
-          case ("xy")
-            ! Floor - xy solid wall between z_wall-thick_wall and z_wall
-            z = dble(iz)*dz
-            if ( (z>=pos_wall-thick_wall) .and. (z<=pos_wall) ) then
-              mask(ix,iy,iz) = 1.d0
-              us(ix,iy,iz,:) = 0.d0
-              ! external boxes have color 0 (important for forces)
-              mask_color(ix,iy,iz) = 0
-            endif
-
-          case ("turek")                  !      z
-            ! Turek walls:                !      ^
-            thick_wall = 0.2577143d0      !      |
-            usponge = 0.5060014d0         !      |
-            H_eff = zl-2.d0*thick_wall    !      -------> y
-
-            z = dble(iz)*dz
-            y = dble(iy)*dy
-            z_chan = z-thick_Wall
-
-            !-- channel walls
-            if ((z<=thick_Wall).or.(z>=zl-thick_Wall)) then
-              mask(ix,iy,iz) = 1.d0
-              mask_color(ix,iy,iz) = 0
-              us(ix,iy,iz,:) = 0.d0
-            endif
-
-            !-- velocity sponge (sharp, maybe smooth it to one side)
-            if ((y<=usponge).and.(z>=thick_Wall).and.(z<=zl-thick_Wall)) then
-              mask(ix,iy,iz) = 1.d0
-              mask_color(ix,iy,iz) = 0
-              ! note in 2D flows, we set nx=1 and run in the y-z plane where
-              ! y is the axial direction
-              us(ix,iy,iz,1) = 0.d0
-              us(ix,iy,iz,2) = 1.5*z_chan*(H_eff-z_chan)/((0.5*H_eff)**2)
-              us(ix,iy,iz,3) = 0.d0
-            endif
-
-          case default
-            write (*,*) "add_channel()::iChannel is not a known value"
-            call abort()
-          end select
-          !----------------
-       enddo
+          if (mask(ix,iy,iz)<=1.0d-10) then
+            mask(ix,iy,iz) = (dist**2) * eps / eps_sponge
+            us(ix,iy,iz,1:3) = (/uxmean,uymean,uzmean/)
+            mask_color(ix,iy,iz) = 0
+          endif
+        enddo
+      enddo
     enddo
-  enddo
+
+  case ("sponge2d")
+    do iz = ra(3), rb(3)
+      do iy = ra(2), rb(2)
+        do ix = ra(1), rb(1)
+          y = dble(iy)*dy
+          z = dble(iz)*dz
+
+          dist =  minval( (/y,z,dabs(y-yl),dabs(z-zl)/) )
+          dist = dist - thick_wall
+          dist = -min( dist/thick_wall, 0.d0)
+
+          if (mask(ix,iy,iz)<=1.0d-10) then
+            mask(ix,iy,iz) = (dist**2) * eps / eps_sponge
+            us(ix,iy,iz,1:3) = (/uxmean,uymean,uzmean/)
+            mask_color(ix,iy,iz) = 0
+          endif
+        enddo
+      enddo
+    enddo
+  case ("xz")
+    do iz = ra(3), rb(3)
+      do iy = ra(2), rb(2)
+        do ix = ra(1), rb(1)
+          ! Floor - xz solid wall between y_wall-thick_wall and y_wall
+          y = dble(iy)*dy
+          if ( (y>=pos_wall-thick_wall) .and. (y<=pos_wall) ) then
+            mask(ix,iy,iz) = 1.d0
+            us(ix,iy,iz,:) = 0.d0
+            ! external boxes have color 0 (important for forces)
+            mask_color(ix,iy,iz) = 0
+          endif
+        enddo
+      enddo
+    enddo
+  case ("xy")
+    do iz = ra(3), rb(3)
+      do iy = ra(2), rb(2)
+        do ix = ra(1), rb(1)
+          ! Floor - xy solid wall between z_wall-thick_wall and z_wall
+          z = dble(iz)*dz
+          if ( (z>=pos_wall-thick_wall) .and. (z<=pos_wall) ) then
+            mask(ix,iy,iz) = 1.d0
+            us(ix,iy,iz,:) = 0.d0
+            ! external boxes have color 0 (important for forces)
+            mask_color(ix,iy,iz) = 0
+          endif
+        enddo
+      enddo
+    enddo
+  case ("turek")                  !      z
+    ! Turek walls:                !      ^
+    thick_wall = 0.2577143d0      !      |
+    usponge = 0.5060014d0         !      |
+    H_eff = zl-2.d0*thick_wall    !      -------> y
+    do iz = ra(3), rb(3)
+      do iy = ra(2), rb(2)
+        do ix = ra(1), rb(1)
+          z = dble(iz)*dz
+          y = dble(iy)*dy
+          z_chan = z-thick_Wall
+
+          !-- channel walls
+          if ((z<=thick_Wall).or.(z>=zl-thick_Wall)) then
+            mask(ix,iy,iz) = 1.d0
+            mask_color(ix,iy,iz) = 0
+            us(ix,iy,iz,:) = 0.d0
+          endif
+
+          !-- velocity sponge (sharp, maybe smooth it to one side)
+          if ((y<=usponge).and.(z>=thick_Wall).and.(z<=zl-thick_Wall)) then
+            mask(ix,iy,iz) = 1.d0
+            mask_color(ix,iy,iz) = 0
+            ! note in 2D flows, we set nx=1 and run in the y-z plane where
+            ! y is the axial direction
+            us(ix,iy,iz,1) = 0.d0
+            us(ix,iy,iz,2) = 1.5*z_chan*(H_eff-z_chan)/((0.5*H_eff)**2)
+            us(ix,iy,iz,3) = 0.d0
+          endif
+        enddo
+      enddo
+    enddo
+  case default
+    write (*,*) "add_channel()::iChannel is not a known value"
+    call abort()
+  end select
 
 end subroutine add_channel

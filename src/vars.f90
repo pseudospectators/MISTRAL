@@ -90,12 +90,12 @@ module vars
   real(kind=pr),save :: pi ! 3.14....
 
   ! Vabiables timing statistics.  Global to simplify syntax.
-  real(kind=pr),save :: time_mask
+  real(kind=pr),save :: time_mask,tstart=0.d0
   real(kind=pr),save :: time_vor, time_p
   real(kind=pr),save :: time_bckp, time_save, time_total, time_fluid
   real(kind=pr),save :: time_insect_body
   real(kind=pr),save :: time_insect_wings, time_insect_vel
-  real(kind=pr),save :: time_solid, time_drag, time_surf, time_LAPACK
+  real(kind=pr),save :: time_solid, time_drag, time_surf, time_LAPACK, time_sync
   real(kind=pr),save :: time_hdf5, time_integrals, time_rhs
 
   ! Variables set via the parameters file
@@ -131,7 +131,7 @@ module vars
   real(kind=pr),save :: dt_max=0.d0
   real(kind=pr),save :: cfl
   integer,save :: nt
-  character(len=strlen),save :: iTimeMethodFluid
+  character(len=strlen),save :: iTimeMethodFluid, intelligent_dt="no"
 
   ! viscosity (inverse of Reynolds number:)
   real(kind=pr),save :: nu, eps_sponge
@@ -155,7 +155,8 @@ module vars
   real(kind=pr),save :: thick_wall
   ! wall position (solid from pos_wall to pos_wall+thick_wall)
   real(kind=pr),save :: pos_wall
-
+  ! periodization of coordinates
+  logical, save :: periodic = .false.
 
   ! save forces and use unsteady corrections?
   integer, save :: compute_forces
@@ -179,19 +180,77 @@ module vars
   type(Integrals),save :: GlobalIntegrals
   type(SolidDynType), save :: SolidDyn
 
-  interface abort
-    module procedure abort1, abort2, abort4, abort3
-  end interface
+  !*****************************************************************************
+  !*****************************************************************************
+  !*****************************************************************************
+  ! Helper routines for general purpose use throughout the code
+  !*****************************************************************************
+  !*****************************************************************************
+  !*****************************************************************************
+    interface abort
+      module procedure abort1, abort2, abort4, abort3
+    end interface
 
-  interface on_proc
-    module procedure on_proc1, on_proc2
-  end interface
+    interface in_domain
+      module procedure in_domain1, in_domain2
+    end interface
 
-  !-----------------------------------------------------------------------------
-  ! Small helper functions
-  !-----------------------------------------------------------------------------
-  contains
+    interface on_proc
+      module procedure on_proc1, on_proc2
+    end interface
 
+
+  !!!!!!!!!!
+    contains
+  !!!!!!!!!!
+
+
+    !-----------------------------------------------------------------------------
+    ! convert degree to radiant
+    !-----------------------------------------------------------------------------
+    real(kind=pr) function deg2rad(deg)
+      implicit none
+      real(kind=pr), intent(in) :: deg
+      deg2rad=deg*pi/180.d0
+      return
+    end function
+
+    !-----------------------------------------------------------------------------
+    ! radiant to degree
+    !-----------------------------------------------------------------------------
+    real(kind=pr) function rad2deg(deg)
+      implicit none
+      real(kind=pr), intent(in) :: deg
+      rad2deg=deg*180.d0/pi
+      return
+    end function
+
+    !-----------------------------------------------------------------------------
+    ! cross product of two vectors
+    !-----------------------------------------------------------------------------
+    function cross(a,b)
+      implicit none
+      real(kind=pr),dimension(1:3),intent(in) :: a,b
+      real(kind=pr),dimension(1:3) :: cross
+      cross(1) = a(2)*b(3)-a(3)*b(2)
+      cross(2) = a(3)*b(1)-a(1)*b(3)
+      cross(3) = a(1)*b(2)-a(2)*b(1)
+    end function
+
+    !-----------------------------------------------------------------------------
+    ! 2-norm length of vectors
+    !-----------------------------------------------------------------------------
+    function norm2(a)
+      implicit none
+      real(kind=pr),dimension(1:3),intent(in) :: a
+      real(kind=pr) :: norm2
+      norm2 = dsqrt( a(1)*a(1) + a(2)*a(2) + a(3)*a(3) )
+    end function
+
+    !---------------------------------------------------------------------------
+    ! return periodic index, i.e. if we give ix greater than nx, return
+    ! smallest image convention. used, e.g., when computing finite difference
+    ! operators or interpolations
     !---------------------------------------------------------------------------
     integer function GetIndex(ix,nx)
       implicit none
@@ -210,29 +269,14 @@ module vars
       integer :: tmp
       tmp=ix
       if (tmp<0) tmp = tmp+nx
+      if (tmp<0) tmp = tmp+nx
+      if (tmp>nx-1) tmp = tmp-nx
       if (tmp>nx-1) tmp = tmp-nx
       if (nx==1) tmp=0
       per=tmp
       return
     end function per
-    !---------------------------------------------------------------------------
-    subroutine suicide1
-      implicit none
-      integer :: mpicode
 
-      if (mpirank==0) write(*,*) "Killing run..."
-      call MPI_abort(MPI_COMM_WORLD,666,mpicode)
-    end subroutine suicide1
-    !---------------------------------------------------------------------------
-    subroutine suicide2(msg)
-      implicit none
-      integer :: mpicode
-      character(len=*), intent(in) :: msg
-
-      if (mpirank==0) write(*,*) "Killing run..."
-      if (mpirank==0) write(*,*) msg
-      call MPI_abort(MPI_COMM_WORLD,666,mpicode)
-    end subroutine suicide2
     !---------------------------------------------------------------------------
     ! abort run, with or without bye-bye message
     !---------------------------------------------------------------------------
@@ -280,21 +324,74 @@ module vars
 
     !---------------------------------------------------------------------------
     ! wrapper for NaN checking (this may be compiler dependent)
+    !---------------------------------------------------------------------------
     logical function is_nan( x )
       implicit none
       real(kind=pr)::x
       is_nan = .false.
       if (.not.(x.eq.x)) is_nan=.true.
     end function
+
+    !---------------------------------------------------------------------------
+    ! check wether real coordinates x are in the domain
+    !---------------------------------------------------------------------------
+    logical function in_domain1( x )
+      implicit none
+      real(kind=pr),intent(in)::x(1:3)
+      in_domain1 = .false.
+      if ( ((x(1)>=0.d0).and.(x(1)<xl)).and.&
+           ((x(2)>=0.d0).and.(x(2)<yl)).and.&
+           ((x(3)>=0.d0).and.(x(3)<zl)) ) in_domain1=.true.
+    end function
+
+    !---------------------------------------------------------------------------
+    ! check wether integer coordinates x are in the domain
+    !---------------------------------------------------------------------------
+    logical function in_domain2( x )
+      implicit none
+      integer,intent(in)::x(1:3)
+      in_domain2 = .false.
+      if (  ((x(1)>=0).and.(x(1)<nx-1)).and.&
+            ((x(2)>=0).and.(x(2)<ny-1)).and.&
+            ((x(3)>=0).and.(x(3)<nz-1)) ) in_domain2=.true.
+    end function
+
+    !---------------------------------------------------------------------------
+    ! check wether real coordinates x are on this mpi-process
+    !---------------------------------------------------------------------------
+    logical function on_proc1( x )
+      implicit none
+      real(kind=pr),intent(in)::x(1:3)
+      on_proc1 = .false.
+      if (  ((x(1)>=ra(1)*dx).and.(x(1)<=rb(1)*dx)).and.&
+            ((x(2)>=ra(2)*dy).and.(x(2)<=rb(2)*dy)).and.&
+            ((x(3)>=ra(3)*dz).and.(x(3)<=rb(3)*dz)) ) on_proc1=.true.
+    end function
+
+    !---------------------------------------------------------------------------
+    ! check wether integer coordinates x are on this mpi-process
+    !---------------------------------------------------------------------------
+    logical function on_proc2( x )
+      implicit none
+      integer,intent(in)::x(1:3)
+      on_proc2 = .false.
+      if ( ((x(1)>=ra(1)).and.(x(1)<=rb(1))).and.&
+           ((x(2)>=ra(2)).and.(x(2)<=rb(2))).and.&
+           ((x(3)>=ra(3)).and.(x(3)<=rb(3))) ) on_proc2=.true.
+    end function
+
     !---------------------------------------------------------------------------
     ! wrapper for random number generator (this may be compiler dependent)
+    !---------------------------------------------------------------------------
     real(kind=pr) function rand_nbr()
       implicit none
       call random_number( rand_nbr )
     end function
+
     !---------------------------------------------------------------------------
     ! soft startup funtion, is zero until time=time_release, then gently goes to
     ! one during the time period time_tau
+    !---------------------------------------------------------------------------
     real(kind=pr) function startup_conditioner(time,time_release,time_tau)
       implicit none
       real(kind=pr), intent(in) :: time,time_release,time_tau
@@ -309,71 +406,69 @@ module vars
       else
         startup_conditioner = 1.d0
       endif
-
     end function
-    !---------------------------------------------------------------------------
-    ! this function simplifies my life with the insects
-    real(kind=pr) function deg2rad(deg)
+
+    !-----------------------------------------------------------------------------
+    ! Condition for output conditions.
+    ! return true after tfrequ time units or itfrequ time steps or if we're at the
+    ! and of the simulation
+    !-----------------------------------------------------------------------------
+    logical function time_for_output( time, dt, it, tfrequ, ifrequ, tmax, tfirst )
       implicit none
-      real(kind=pr), intent(in) :: deg
-      deg2rad=deg*pi/180.d0
-      return
+      real(kind=pr), intent(in) :: time, dt, tfrequ, tfirst
+      real(kind=pr), intent(in) :: tmax ! final time (if we save at the end of run)
+      integer, intent(in) :: it ! time step counter
+      integer, intent(in) :: ifrequ ! save every ifrequ time steps
+
+      real(kind=pr) :: tnext1, tnext2
+
+      time_for_output = .false.
+
+      ! we never save before tfirst
+      if (time<tfirst) return
+
+      if (intelligent_dt=="yes") then
+        ! with intelligent time stepping activated, the time step is adjusted not
+        ! to pass by tsave,tintegral,tmax,tslice
+        ! this is the next instant we want to save
+        tnext1 = dble(ceiling(time/tfrequ))*tfrequ
+        tnext2 = dble(floor  (time/tfrequ))*tfrequ
+        ! please note that the time actually is very close to the next instant we
+        ! want to save. however, it may be slightly less or larger. therefore, we
+        ! cannot just check (time-tnext), since tnext may be wrong
+        if ((abs(time-tnext1)<=1.0d-6).or.(abs(time-tnext2)<=1.0d-6).or.&
+            (modulo(it,ifrequ)==0).or.(abs(time-tmax)<=1.0d-6)) then
+          time_for_output = .true.
+        endif
+      else
+        ! without intelligent time stepping, we save output when we're close enough
+        if ( (modulo(time,tfrequ)<dt).or.(modulo(it,ifrequ)==0).or.(time==tmax) ) then
+          time_for_output = .true.
+        endif
+      endif
     end function
-    !---------------------------------------------------------------------------
-    function cross(a,b)
-      implicit none
-      real(kind=pr),dimension(1:3),intent(in) :: a,b
-      real(kind=pr),dimension(1:3) :: cross
-      cross(1) = a(2)*b(3)-a(3)*b(2)
-      cross(2) = a(3)*b(1)-a(1)*b(3)
-      cross(3) = a(1)*b(2)-a(2)*b(1)
+
+    !-----------------------------------------------------------------------------
+    ! given a point x, check if it lies in the computational domain centered at zero
+    ! (note: we assume [-xl/2...+xl/2] size this is useful for insects )
+    !-----------------------------------------------------------------------------
+    function periodize_coordinate(x_glob)
+      real(kind=pr),intent(in) :: x_glob(1:3)
+      real(kind=pr),dimension(1:3) :: periodize_coordinate
+
+      periodize_coordinate = x_glob
+
+      if (periodic) then
+        if (x_glob(1)<-xl/2.0) periodize_coordinate(1)=x_glob(1)+xl
+        if (x_glob(2)<-yl/2.0) periodize_coordinate(2)=x_glob(2)+yl
+        if (x_glob(3)<-zl/2.0) periodize_coordinate(3)=x_glob(3)+zl
+
+        if (x_glob(1)>xl/2.0) periodize_coordinate(1)=x_glob(1)-xl
+        if (x_glob(2)>yl/2.0) periodize_coordinate(2)=x_glob(2)-yl
+        if (x_glob(3)>zl/2.0) periodize_coordinate(3)=x_glob(3)-zl
+      endif
+
     end function
-    !---------------------------------------------------------------------------
-    !---------------------------------------------------------------------------
-  ! check wether real coordinates x are in the domain
-  !---------------------------------------------------------------------------
-  logical function in_domain1( x )
-    implicit none
-    real(kind=pr),intent(in)::x(1:3)
-    in_domain1 = .false.
-    if ( ((x(1)>=0.d0).and.(x(1)<xl)).and.&
-         ((x(2)>=0.d0).and.(x(2)<yl)).and.&
-         ((x(3)>=0.d0).and.(x(3)<zl)) ) in_domain1=.true.
-  end function
 
-  !---------------------------------------------------------------------------
-  ! check wether integer coordinates x are in the domain
-  !---------------------------------------------------------------------------
-  logical function in_domain2( x )
-    implicit none
-    integer,intent(in)::x(1:3)
-    in_domain2 = .false.
-    if (  ((x(1)>=0).and.(x(1)<nx-1)).and.&
-          ((x(2)>=0).and.(x(2)<ny-1)).and.&
-          ((x(3)>=0).and.(x(3)<nz-1)) ) in_domain2=.true.
-  end function
 
-  !---------------------------------------------------------------------------
-  ! check wether real coordinates x are on this mpi-process
-  !---------------------------------------------------------------------------
-  logical function on_proc1( x )
-    implicit none
-    real(kind=pr),intent(in)::x(1:3)
-    on_proc1 = .false.
-    if (  ((x(1)>=ra(1)*dx).and.(x(1)<=rb(1)*dx)).and.&
-          ((x(2)>=ra(2)*dy).and.(x(2)<=rb(2)*dy)).and.&
-          ((x(3)>=ra(3)*dz).and.(x(3)<=rb(3)*dz)) ) on_proc1=.true.
-  end function
-
-  !---------------------------------------------------------------------------
-  ! check wether integer coordinates x are on this mpi-process
-  !---------------------------------------------------------------------------
-  logical function on_proc2( x )
-    implicit none
-    integer,intent(in)::x(1:3)
-    on_proc2 = .false.
-    if ( ((x(1)>=ra(1)).and.(x(1)<=rb(1))).and.&
-         ((x(2)>=ra(2)).and.(x(2)<=rb(2))).and.&
-         ((x(3)>=ra(3)).and.(x(3)<=rb(3))) ) on_proc2=.true.
-  end function
 end module vars
