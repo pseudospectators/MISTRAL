@@ -17,7 +17,7 @@ FFILES = rhs.f90 fluid_time_step.f90 init_fields.f90 \
 	init_fields_fsi.f90 integrals.f90 params.f90 \
 	runtime_control.f90 drag.f90 \
 	draw_plate.f90 draw_sphere.f90 \
-  rotation_matrices.f90 \
+  rotation_matrices.f90  basic_file_routines.f90 \
   add_channel.f90 add_cavity.f90 \
   noncircular_cylinder.f90 draw_flexible_plate.f90 implicit.f90
 
@@ -34,13 +34,13 @@ OBJS := $(FFILES:%.f90=$(OBJDIR)/%.o)
 # Files that create modules:
 MFILES = vars.f90 diff.f90 cof_p3dfft.f90 solid_solver.f90 \
 	interpolation.f90 basic_operators.f90 insects.f90 ghostpoints.f90 \
-	ini_files_parser.f90 ini_files_parser_mpi.f90 helpers.f90
+	ini_files_parser.f90 ini_files_parser_mpi.f90 helpers.f90 hdf5_wrapper.f90
 MOBJS := $(MFILES:%.f90=$(OBJDIR)/%.o)
 
 # Source code directories (colon-separated):
 VPATH = src
 VPATH += :src/inicond:src/inicond/hyd:src/inicond/mhd:src/inicond/scalar
-VPATH += :src/geometry:src/geometry/hyd
+VPATH += :src/geometry:src/geometry/hyd:src/file_io
 VPATH += :src/insects:src/solid_solver
 
 # Set the default compiler if it's not already set, make sure it's not F77.
@@ -160,6 +160,8 @@ $(OBJDIR)/ini_files_parser_mpi.o: ini_files_parser_mpi.f90 $(OBJDIR)/vars.o $(OB
 $(OBJDIR)/ini_files_parser.o: ini_files_parser.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/helpers.o: helpers.f90 $(OBJDIR)/vars.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/hdf5_wrapper.o: hdf5_wrapper.f90 $(OBJDIR)/vars.o $(OBJDIR)/helpers.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 # Compile remaining objects from Fortran files.

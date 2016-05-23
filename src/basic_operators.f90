@@ -22,6 +22,11 @@ module basic_operators
     module procedure fieldmaxabs, fieldmaxabs3
   end interface
 
+  !-- interface for maxima of fields
+  interface field_max_magnitude
+    module procedure field_max_magnitude, field_max_magnitude3
+  end interface
+
   !-- check fields for NaN
   interface checknan
     module procedure checknan_cmplx, checknan_real
@@ -273,7 +278,7 @@ real(kind=pr) function fieldmax( inx )
   real(kind=pr) :: max_local, max_global
   integer :: mpicode
 
-  max_local = maxval(inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  max_local = maxval(inx(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
   call MPI_ALLREDUCE (max_local,max_global,1,&
        MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode)
   ! return the value
@@ -289,13 +294,32 @@ real(kind=pr) function fieldmin( inx )
   real(kind=pr) :: min_local, min_global
   integer :: mpicode
 
-  min_local = minval(inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  min_local = minval(inx(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
   call MPI_ALLREDUCE (min_local,min_global,1,&
        MPI_DOUBLE_PRECISION,MPI_MIN,MPI_COMM_WORLD,mpicode)
   ! return the value
   fieldmin = min_global
 end function fieldmin
 
+
+! returns the mean value of a given field
+real(kind=pr) function fieldmean( inx )
+  use mpi
+  use vars
+  implicit none
+  real(kind=pr),intent(in):: inx(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr) :: mean_local, mean_global
+  integer :: mpicode, npoints
+
+  ! number of points on local CPU
+  npoints = (rb(1)-ra(1)+1)*(rb(2)-ra(2)+1)*(rb(3)-ra(3)+1)
+
+  mean_local = sum(inx) / dble(npoints)
+  call MPI_ALLREDUCE (mean_local,mean_global,1,&
+       MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+  ! return the value
+  fieldmean = mean_global
+end function fieldmean
 
 !-------------------------------------------------------------------------------
 ! returns the globally largest entry of a given vector field
@@ -338,12 +362,12 @@ real(kind=pr) function fieldmaxabs( inx1, inx2, inx3 )
   real(kind=pr) :: max_local, max_global
   integer :: mpicode
 
-  max_local = maxval( inx1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) * &
-                      inx1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) + &
-                      inx2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) * &
-                      inx2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) + &
-                      inx3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) * &
-                      inx3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
+  max_local = maxval( inx1(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)) * &
+                      inx1(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)) + &
+                      inx2(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)) * &
+                      inx2(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)) + &
+                      inx3(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)) * &
+                      inx3(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)) )
   max_local = dsqrt( max_local )
 
   call MPI_ALLREDUCE (max_local,max_global,1,&
@@ -353,13 +377,67 @@ real(kind=pr) function fieldmaxabs( inx1, inx2, inx3 )
 end function fieldmaxabs
 
 
+
+
+! returns the globally largest entry of a given vector field
+! (L2-norm)
+real(kind=pr) function field_max_magnitude3( inx )
+  use mpi
+  use vars
+  implicit none
+  real(kind=pr),intent(in):: inx(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
+  real(kind=pr) :: max_local, max_global, value
+  integer :: mpicode
+  integer ::ix,iy,iz
+
+  max_local = 0.d0
+  do iz = ra(3),rb(3)
+    do iy = ra(2),rb(2)
+      do ix = ra(1),rb(1)
+        value = inx(ix,iy,iz,1)*inx(ix,iy,iz,1) + inx(ix,iy,iz,2)*inx(ix,iy,iz,2) &
+              + inx(ix,iy,iz,3)*inx(ix,iy,iz,3)
+        if (max_local<value) max_local=value
+       enddo
+    enddo
+  enddo
+
+  max_local = dsqrt( max_local )
+  call MPI_ALLREDUCE (max_local,max_global,1,&
+       MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode)
+  ! return the value
+  field_max_magnitude3 = max_global
+end function field_max_magnitude3
+
+
+! returns the globally largest entry of a given vector field
+! (L2-norm)
+real(kind=pr) function field_max_magnitude( inx1, inx2, inx3 )
+  use mpi
+  use vars
+  implicit none
+  real(kind=pr),intent(in):: inx1(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(in):: inx2(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(in):: inx3(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr) :: max_local, max_global
+  integer :: mpicode
+
+  max_local = maxval( inx1*inx1 + inx2*inx2  + inx3*inx3 )
+  max_local = dsqrt( max_local )
+
+  call MPI_ALLREDUCE (max_local,max_global,1,&
+       MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode)
+  ! return the value
+  field_max_magnitude = max_global
+end function field_max_magnitude
+
+
 !-------------------------------------------------------------------------------
 ! check a real valued field for NaNs and display warning if found
 !-------------------------------------------------------------------------------
 subroutine checknan_real( field, msg )
   implicit none
   real(kind=pr),intent(inout)::field(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  character(len=*),intent(inout)::msg
+  character(len=*),intent(in)::msg
   integer :: foundnan,foundnans,mpicode,ix,iy,iz
   foundnan = 0
   do ix=ra(1),rb(1)
@@ -383,7 +461,7 @@ end subroutine checknan_real
 subroutine checknan_cmplx( field, msg )
   implicit none
   complex(kind=pr),intent(inout)::field(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  character(len=*),intent(inout)::msg
+  character(len=*),intent(in)::msg
   integer :: foundnan,foundnans,mpicode,ix,iy,iz
   foundnan = 0
   do iz=ca(1),cb(1)

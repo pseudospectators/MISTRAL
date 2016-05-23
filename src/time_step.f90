@@ -68,8 +68,7 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
      ! Output of INTEGRALS after every tintegral time
      ! units or itdrag time steps
      !-------------------------------------------------
-     if ((modulo(time%time,tintegral) <= time%dt_new .or. &
-          modulo(time%it,itdrag)==0) .and. dry_run_without_fluid/="yes" ) then
+     if (time_for_output(time%time, time%dt_new, time%it, tintegral, itdrag, tmax, 0.d0)) then
        call write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
      endif
 
@@ -83,7 +82,7 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
      !-------------------------------------------------
      ! Output FIELDS+BACKUPING (after tsave)
      !-------------------------------------------------
-     if (((modulo(time%time,tsave)<time%dt_new).and.(time%time>=tsave_first)).or.(time%time==tmax)) then
+     if (time_for_output(time%time, time%dt_new, time%it, tsave, 99999999, tmax, tsave_first)) then
         call save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
      endif
 

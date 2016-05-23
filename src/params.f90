@@ -64,6 +64,7 @@ subroutine get_params(paramsfile,Insect,verbose)
   call read_param_mpi(PARAMS,"Time","CFL",cfl,1.d0)
   call read_param_mpi(PARAMS,"Time","dt_max",dt_max,0.d0)
   call read_param_mpi(PARAMS,"Time","dt_fixed",dt_fixed,0.d0)
+  call read_param_mpi(PARAMS,"Time","intelligent_dt",intelligent_dt,"no")
 
   !-----------------------------------------------------------------------------
   ! Reynolds number section:
@@ -88,6 +89,7 @@ subroutine get_params(paramsfile,Insect,verbose)
   call read_param_mpi(PARAMS,"Saving","iDoBackup",iDoBackup, 1)
   call read_param_mpi(PARAMS,"Saving","iSaveVelocity",iSaveVelocity, 0)
   call read_param_mpi(PARAMS,"Saving","iSavePress",iSavePress, 0)
+  call read_param_mpi(PARAMS,"Saving","iSaveDivergence",iSaveDivergence, 0)
   call read_param_mpi(PARAMS,"Saving","iSaveVorticity",iSaveVorticity, 0)
   call read_param_mpi(PARAMS,"Saving","iSaveMask",iSaveMask, 0)
   call read_param_mpi(PARAMS,"Saving","iSaveXMF",iSaveXMF, 0) ! default is no
@@ -101,6 +103,9 @@ subroutine get_params(paramsfile,Insect,verbose)
        save_only_one_period,"no")
   call read_param_mpi(PARAMS,"Saving","itdrag",itdrag,99999)
   call read_param_mpi(PARAMS,"Saving","itbeam",itbeam,99999)
+  call read_param_mpi(PARAMS,"Saving","striding",striding,1)
+  call read_param_mpi(PARAMS,"Saving","field_precision",&
+  field_precision,"single")
 
   !-- dry run, just the mask function
   call read_param_mpi(PARAMS,"DryRun","dry_run_without_fluid",dry_run_without_fluid,"no")

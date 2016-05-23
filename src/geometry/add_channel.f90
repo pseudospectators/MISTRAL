@@ -33,7 +33,8 @@ subroutine add_channel(mask,mask_color,us)
           if (mask(ix,iy,iz)<=1.0d-10) then
             mask(ix,iy,iz) = (dist**2) * eps / eps_sponge
             us(ix,iy,iz,1:3) = (/uxmean,uymean,uzmean/)
-            mask_color(ix,iy,iz) = 0
+            ! color -1 indicates the sponge region: sponges also act on pressure
+            mask_color(ix,iy,iz) = -1
           endif
         enddo
       enddo
@@ -53,7 +54,8 @@ subroutine add_channel(mask,mask_color,us)
           if (mask(ix,iy,iz)<=1.0d-10) then
             mask(ix,iy,iz) = (dist**2) * eps / eps_sponge
             us(ix,iy,iz,1:3) = (/uxmean,uymean,uzmean/)
-            mask_color(ix,iy,iz) = 0
+            ! color -1 indicates the sponge region: sponges also act on pressure
+            mask_color(ix,iy,iz) = -1
           endif
         enddo
       enddo

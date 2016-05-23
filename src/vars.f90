@@ -107,8 +107,8 @@ module vars
 
   ! Parameters to set which files are saved and how often:
   integer,save :: iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask
-  integer,save :: iSaveSolidVelocity
-  integer,save :: idobackup
+  integer,save :: iSaveSolidVelocity,iSaveDivergence
+  integer,save :: idobackup, striding=1
   integer,save :: iSaveXMF !directly write *.XMF files (1) or not (0)
   real(kind=pr),save :: tintegral ! Time between output of integral quantities
   real(kind=pr),save :: tsave ! Time between outpout of entire fields.
@@ -122,7 +122,7 @@ module vars
   real(kind=pr),save :: wtimemax ! Stop after a certain number of hours of wall.
   ! for periodically repeating flows, it may be better to always have only
   ! one set of files on the disk
-  character(len=strlen),save :: save_only_one_period
+  character(len=strlen),save :: save_only_one_period, field_precision="single"
   real(kind=pr),save :: tsave_period ! then this is period time
 
   ! Time-stepping parameters

@@ -8,7 +8,7 @@ echo "***************************************************"
 #tar xzf tests_data.tar.gz
 
 # list all the test scrits you want, separated by spaces
-tests=(cylinder2d.sh sphere.sh)
+tests=(cylinder2d.sh cylinder2d_2nd.sh sphere.sh sphere_2nd.sh backup_test.sh)
 
 # link flusi and mhd from .. to . if this isn't already done.
 if [ ! -f mistral ]; then

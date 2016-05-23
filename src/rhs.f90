@@ -51,7 +51,7 @@ end subroutine cal_nlk
 !-------------------------------------------------------------------------------
 ! RHS of the penalized ACM equations
 !
-! du/dt = vor \cross u + nu*laplacian(u) -chi/eta*(u-us) -grad(p) +f
+! du/dt = -u.grad u + nu*laplacian(u) -chi/eta*(u-us) -grad(p) +f
 ! dp/dt = -c_o^2 * div(u) - gamma*p
 !
 ! computed using second order finite differences. The constant c_o is the
@@ -98,7 +98,8 @@ subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams,impmode)
   integer::ix,iy,iz
   real(kind=pr)::ux,uy,uz,vorx,vory,vorz,uxdx,uxdy,uxdz,uydx,uydy,uydz,&
   uzdx,uzdy,uzdz,uxdxdx,uxdydy,uxdzdz,uydxdx,uydydy,uydzdz,uzdxdx,uzdydy,uzdzdz,&
-  dxinv,dyinv,dzinv,dx2inv,dy2inv,dz2inv,pdx,pdy,pdz,penalx,penaly,penalz,p,fx
+  dxinv,dyinv,dzinv,dx2inv,dy2inv,dz2inv,pdx,pdy,pdz,penalx,penaly,penalz,p,fx,&
+  chi,chi_sponge,penalp
   real(kind=pr)::forcing(1:3)
 
   call synchronize_ghosts(u,neq)
@@ -121,6 +122,14 @@ subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams,impmode)
         uy = u(ix,iy,iz,2)
         uz = u(ix,iy,iz,3)
         p  = u(ix,iy,iz,4)
+        chi = mask(ix,iy,iz)
+
+        ! color -1 indicates sponges, which also act on the pressure.
+        if (mask_color(ix,iy,iz)==-1) then
+          chi_sponge = mask(ix,iy,iz)
+        else
+          chi_sponge = 0.d0
+        endif
 
         uxdx = (u(ix+1,iy,iz,1) - u(ix-1,iy,iz,1))*dxinv
         uxdy = (u(ix,iy+1,iz,1) - u(ix,iy-1,iz,1))*dyinv
@@ -138,13 +147,11 @@ subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams,impmode)
         pdy = (u(ix,iy+1,iz,4) - u(ix,iy-1,iz,4))*dyinv
         pdz = (u(ix,iy,iz+1,4) - u(ix,iy,iz-1,4))*dzinv
 
-        vorx = uzdy - uydz
-        vory = uxdz - uzdx
-        vorz = uydx - uxdy
-
-        penalx = -mask(ix,iy,iz)*(ux-us(ix,iy,iz,1))
-        penaly = -mask(ix,iy,iz)*(uy-us(ix,iy,iz,2))
-        penalz = -mask(ix,iy,iz)*(uz-us(ix,iy,iz,3))
+        ! penalization term (including sponge terms)
+        penalx = -(chi+chi_sponge)*(ux-us(ix,iy,iz,1))
+        penaly = -(chi+chi_sponge)*(uy-us(ix,iy,iz,2))
+        penalz = -(chi+chi_sponge)*(uz-us(ix,iy,iz,3))
+        penalp = -chi_sponge*p
 
         uxdxdx = (u(ix-1,iy,iz,1)-2.d0*u(ix,iy,iz,1)+u(ix+1,iy,iz,1))*dx2inv
         uxdydy = (u(ix,iy-1,iz,1)-2.d0*u(ix,iy,iz,1)+u(ix,iy+1,iz,1))*dy2inv
@@ -158,10 +165,10 @@ subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams,impmode)
         uzdydy = (u(ix,iy-1,iz,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy+1,iz,3))*dy2inv
         uzdzdz = (u(ix,iy,iz-1,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy,iz+1,3))*dz2inv
 
-        nlk(ix,iy,iz,1) = uy*vorz -uz*vory - pdx + nu*(uxdxdx+uxdydy+uxdzdz) + penalx + forcing(1)
-        nlk(ix,iy,iz,2) = uz*vorx -ux*vorz - pdy + nu*(uydxdx+uydydy+uydzdz) + penaly + forcing(2)
-        nlk(ix,iy,iz,3) = ux*vory -uy*vorx - pdz + nu*(uzdxdx+uzdydy+uzdzdz) + penalz + forcing(3)
-        nlk(ix,iy,iz,4) = -(c_0**2)*(uxdx+uydy+uzdz) - gamma_p*p
+        nlk(ix,iy,iz,1) = -ux*uxdx-uy*uxdy-uz*uxdz - pdx + nu*(uxdxdx+uxdydy+uxdzdz) + penalx + forcing(1)
+        nlk(ix,iy,iz,2) = -ux*uydx-uy*uydy-uz*uydz - pdy + nu*(uydxdx+uydydy+uydzdz) + penaly + forcing(2)
+        nlk(ix,iy,iz,3) = -ux*uzdx-uy*uzdy-uz*uzdz - pdz + nu*(uzdxdx+uzdydy+uzdzdz) + penalz + forcing(3)
+        nlk(ix,iy,iz,4) = -(c_0**2)*(uxdx+uydy+uzdz) - gamma_p*p + penalp
       enddo
     enddo
   enddo
@@ -172,7 +179,7 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! RHS of the penalized ACM equations
 !
-! du/dt = vor \cross u + nu*laplacian(u) -chi/eta*(u-us) -grad(p) +f
+! du/dt = -(u.grad)u + nu*laplacian(u) -chi/eta*(u-us) -grad(p) +f
 ! dp/dt = -c_o^2 * div(u) - gamma*p
 !
 ! computed using FOURTH order finite differences. The constant c_o is the
@@ -216,10 +223,10 @@ subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams,impmode)
   integer, intent(in) :: impmode
 
   integer::ix,iy,iz
-  real(kind=pr)::ux,uy,uz,vorx,vory,vorz,uxdx,uxdy,uxdz,uydx,uydy,uydz,&
+  real(kind=pr)::ux,uy,uz,uxdx,uxdy,uxdz,uydx,uydy,uydz,&
   uzdx,uzdy,uzdz,uxdxdx,uxdydy,uxdzdz,uydxdx,uydydy,uydzdz,uzdxdx,uzdydy,uzdzdz,&
   dxinv,dyinv,dzinv,dx2inv,dy2inv,dz2inv,pdx,pdy,pdz,a1,a2,a4,a5,&
-  b1,b2,b3,b4,b5,penalx,penaly,penalz,p
+  b1,b2,b3,b4,b5,penalx,penaly,penalz,p,chi,chi_sponge,penalp
   real(kind=pr)::forcing(1:3)
   real(kind=pr)::a(-3:+3)
 
@@ -228,21 +235,15 @@ subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams,impmode)
   ! fetch forcing term used to accelerate the mean flow
   call forcing_term(time,u,forcing)
 
-  ! a1 = 1.d0/12.d0
-  ! a2 =-2.d0/3.d0
-  ! a4 = 2.d0/3.d0
-  ! a5 = -1.d0/12.d0
-
-
   ! Tam & Webb, 4th order optimized
-  a=(/-0.02651995d0, +0.18941314d0, -0.79926643d0, 0.0d0, &
+  a = (/-0.02651995d0, +0.18941314d0, -0.79926643d0, 0.0d0, &
        0.79926643d0, -0.18941314d0, 0.02651995d0/)
 
-  b1=-1.d0/12.d0
-  b2=4.d0/3.d0
-  b3=-5.d0/2.d0
-  b4=4.d0/3.d0
-  b5=-1.d0/12.d0
+  b1 = -1.d0/12.d0
+  b2 = 4.d0/3.d0
+  b3 = -5.d0/2.d0
+  b4 = 4.d0/3.d0
+  b5 = -1.d0/12.d0
 
   dxinv = 1.d0/dx
   dyinv = 1.d0/dy
@@ -259,6 +260,14 @@ subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams,impmode)
         uy = u(ix,iy,iz,2)
         uz = u(ix,iy,iz,3)
         p  = u(ix,iy,iz,4)
+        chi = mask(ix,iy,iz)
+
+        ! color -1 indicates sponges, which also act on the pressure.
+        if (mask_color(ix,iy,iz)==-1) then
+          chi_sponge = mask(ix,iy,iz)
+        else
+          chi_sponge = 0.d0
+        endif
 
         uxdx = (a(-3)*u(ix-3,iy,iz,1)+a(-2)*u(ix-2,iy,iz,1)+a(-1)*u(ix-1,iy,iz,1)+a(0)*u(ix,iy,iz,1)&
                +a(+3)*u(ix+3,iy,iz,1)+a(+2)*u(ix+2,iy,iz,1)+a(+1)*u(ix+1,iy,iz,1))*dxinv
@@ -288,15 +297,11 @@ subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams,impmode)
         pdz = (a(-3)*u(ix,iy,iz-3,4)+a(-2)*u(ix,iy,iz-2,4)+a(-1)*u(ix,iy,iz-1,4)+a(0)*u(ix,iy,iz,1)&
               +a(+3)*u(ix,iy,iz+3,4)+a(+2)*u(ix,iy,iz+2,4)+a(+1)*u(ix,iy,iz+1,4))*dzinv
 
-        ! vorticity
-        vorx = uzdy - uydz
-        vory = uxdz - uzdx
-        vorz = uydx - uxdy
-
-        ! penalization term
-        penalx = -mask(ix,iy,iz)*(ux-us(ix,iy,iz,1))
-        penaly = -mask(ix,iy,iz)*(uy-us(ix,iy,iz,2))
-        penalz = -mask(ix,iy,iz)*(uz-us(ix,iy,iz,3))
+        ! penalization term (including sponge terms)
+        penalx = -(chi+chi_sponge)*(ux-us(ix,iy,iz,1))
+        penaly = -(chi+chi_sponge)*(uy-us(ix,iy,iz,2))
+        penalz = -(chi+chi_sponge)*(uz-us(ix,iy,iz,3))
+        penalp = -chi_sponge*p
 
         ! second derivatives
         uxdxdx = (b1*u(ix-2,iy,iz,1)+b2*u(ix-1,iy,iz,1)+b3*u(ix,iy,iz,1)&
@@ -320,10 +325,10 @@ subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams,impmode)
         uzdzdz = (b1*u(ix,iy,iz-2,3)+b2*u(ix,iy,iz-1,3)+b3*u(ix,iy,iz,3)&
                   +b4*u(ix,iy,iz+1,3)+b5*u(ix,iy,iz+2,3))*dz2inv
 
-        nlk(ix,iy,iz,1) = uy*vorz -uz*vory - pdx + nu*(uxdxdx+uxdydy+uxdzdz) + penalx + forcing(1)
-        nlk(ix,iy,iz,2) = uz*vorx -ux*vorz - pdy + nu*(uydxdx+uydydy+uydzdz) + penaly + forcing(2)
-        nlk(ix,iy,iz,3) = ux*vory -uy*vorx - pdz + nu*(uzdxdx+uzdydy+uzdzdz) + penalz + forcing(3)
-        nlk(ix,iy,iz,4) = -(c_0**2)*(uxdx+uydy+uzdz) - gamma_p*p
+        nlk(ix,iy,iz,1) = -ux*uxdx-uy*uxdy-uz*uxdz - pdx + nu*(uxdxdx+uxdydy+uxdzdz) + penalx + forcing(1)
+        nlk(ix,iy,iz,2) = -ux*uydx-uy*uydy-uz*uydz - pdy + nu*(uydxdx+uydydy+uydzdz) + penaly + forcing(2)
+        nlk(ix,iy,iz,3) = -ux*uzdx-uy*uzdy-uz*uzdz - pdz + nu*(uzdxdx+uzdydy+uzdzdz) + penalz + forcing(3)
+        nlk(ix,iy,iz,4) = -(c_0**2)*(uxdx+uydy+uzdz) - gamma_p*p + penalp
       enddo
     enddo
   enddo
@@ -333,7 +338,7 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! RHS of the penalized ACM equations
 !
-! du/dt = vor \cross u + nu*laplacian(u) -chi/eta*(u-us) -grad(p) +f
+! du/dt = -u.grad u + nu*laplacian(u) -chi/eta*(u-us) -grad(p) +f
 ! dp/dt = -c_o^2 * div(u) - gamma*p
 !
 ! computed using second order finite differences. The constant c_o is the
@@ -378,9 +383,9 @@ subroutine rhs_acm_2nd_2D(time,u,nlk,work,mask,mask_color,us,Insect,beams,impmod
   integer,intent(in) :: impmode
 
   integer::ix,iy,iz
-  real(kind=pr)::uy,uz,vorx,uydy,uydz,&
+  real(kind=pr)::uy,uz,uydy,uydz,&
   uzdy,uzdz,uydydy,uydzdz,uzdydy,uzdzdz,&
-  dyinv,dzinv,dy2inv,dz2inv,pdy,pdz,penaly,penalz,p,fx
+  dyinv,dzinv,dy2inv,dz2inv,pdy,pdz,penaly,penalz,p,fx,penalp,chi,chi_sponge
   real(kind=pr)::forcing(1:3)
 
   call synchronize_ghosts(u,neq)
@@ -401,6 +406,14 @@ subroutine rhs_acm_2nd_2D(time,u,nlk,work,mask,mask_color,us,Insect,beams,impmod
       uy = u(ix,iy,iz,2)
       uz = u(ix,iy,iz,3)
       p  = u(ix,iy,iz,4)
+      chi = mask(ix,iy,iz)
+
+      ! color -1 indicates sponges, which also act on the pressure.
+      if (mask_color(ix,iy,iz)==-1) then
+        chi_sponge = mask(ix,iy,iz)
+      else
+        chi_sponge = 0.d0
+      endif
 
       uydy = (u(ix,iy+1,iz,2) - u(ix,iy-1,iz,2))*dyinv
       uydz = (u(ix,iy,iz+1,2) - u(ix,iy,iz-1,2))*dzinv
@@ -411,10 +424,10 @@ subroutine rhs_acm_2nd_2D(time,u,nlk,work,mask,mask_color,us,Insect,beams,impmod
       pdy  = (u(ix,iy+1,iz,4) - u(ix,iy-1,iz,4))*dyinv
       pdz  = (u(ix,iy,iz+1,4) - u(ix,iy,iz-1,4))*dzinv
 
-      vorx = uzdy - uydz
-
-      penaly = -mask(ix,iy,iz)*(uy-us(ix,iy,iz,2))
-      penalz = -mask(ix,iy,iz)*(uz-us(ix,iy,iz,3))
+      ! penalization term (including sponge)
+      penaly = -(chi+chi_sponge)*(uy-us(ix,iy,iz,2))
+      penalz = -(chi+chi_sponge)*(uz-us(ix,iy,iz,3))
+      penalp = -chi_sponge*p
 
       uydydy = (u(ix,iy-1,iz,2)-2.d0*u(ix,iy,iz,2)+u(ix,iy+1,iz,2))*dy2inv
       uydzdz = (u(ix,iy,iz-1,2)-2.d0*u(ix,iy,iz,2)+u(ix,iy,iz+1,2))*dz2inv
@@ -423,9 +436,9 @@ subroutine rhs_acm_2nd_2D(time,u,nlk,work,mask,mask_color,us,Insect,beams,impmod
       uzdzdz = (u(ix,iy,iz-1,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy,iz+1,3))*dz2inv
 
       nlk(ix,iy,iz,1) = 0.d0
-      nlk(ix,iy,iz,2) = +uz*vorx -pdy + nu*(uydydy+uydzdz) + penaly + forcing(2)
-      nlk(ix,iy,iz,3) = -uy*vorx -pdz + nu*(uzdydy+uzdzdz) + penalz + forcing(3)
-      nlk(ix,iy,iz,4) = -(c_0**2)*(uydy+uzdz) - gamma_p*p
+      nlk(ix,iy,iz,2) = -uy*uydy -uz*uydz -pdy + nu*(uydydy+uydzdz) + penaly + forcing(2)
+      nlk(ix,iy,iz,3) = -uy*uzdy -uz*uzdz -pdz + nu*(uzdydy+uzdzdz) + penalz + forcing(3)
+      nlk(ix,iy,iz,4) = -(c_0**2)*(uydy+uzdz) - gamma_p*p + penalp
     enddo
   enddo
 end subroutine
@@ -435,7 +448,7 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! RHS of the penalized ACM equations
 !
-! du/dt = vor \cross u + nu*laplacian(u) -chi/eta*(u-us) -grad(p) +f
+! du/dt = -u.grad u + nu*laplacian(u) -chi/eta*(u-us) -grad(p) +f
 ! dp/dt = -c_o^2 * div(u) - gamma*p
 !
 ! computed using FOURTH order finite differences. The constant c_o is the
@@ -479,10 +492,10 @@ subroutine rhs_acm_4th_2d(time,u,nlk,work,mask,mask_color,us,Insect,beams,impmod
   integer, intent(in) :: impmode
 
   integer::ix,iy,iz
-  real(kind=pr)::uy,uz,vorx,uydy,uydz,&
+  real(kind=pr)::uy,uz,uydy,uydz,&
   uzdy,uzdz,uydydy,uydzdz,uzdydy,uzdzdz,&
   dyinv,dzinv,dy2inv,dz2inv,pdy,pdz,a1,a2,a4,a5,&
-  b1,b2,b3,b4,b5,penaly,penalz,p
+  b1,b2,b3,b4,b5,penaly,penalz,p,penalp,chi,chi_sponge
   real(kind=pr)::forcing(1:3)
   real(kind=pr)::a(-3:+3)
 
@@ -520,6 +533,14 @@ subroutine rhs_acm_4th_2d(time,u,nlk,work,mask,mask_color,us,Insect,beams,impmod
       uy = u(ix,iy,iz,2)
       uz = u(ix,iy,iz,3)
       p  = u(ix,iy,iz,4)
+      chi = mask(ix,iy,iz)
+
+      ! color -1 indicates sponges, which also act on the pressure.
+      if (mask_color(ix,iy,iz)==-1) then
+        chi_sponge = mask(ix,iy,iz)
+      else
+        chi_sponge = 0.d0
+      endif
 
       uydy = (a(-3)*u(ix,iy-3,iz,2)+a(-2)*u(ix,iy-2,iz,2)+a(-1)*u(ix,iy-1,iz,2)+a(0)*u(ix,iy,iz,1)&
              +a(+3)*u(ix,iy+3,iz,2)+a(+2)*u(ix,iy+2,iz,2)+a(+1)*u(ix,iy+1,iz,2))*dyinv
@@ -536,32 +557,26 @@ subroutine rhs_acm_4th_2d(time,u,nlk,work,mask,mask_color,us,Insect,beams,impmod
       pdz = (a(-3)*u(ix,iy,iz-3,4)+a(-2)*u(ix,iy,iz-2,4)+a(-1)*u(ix,iy,iz-1,4)+a(0)*u(ix,iy,iz,1)&
             +a(+3)*u(ix,iy,iz+3,4)+a(+2)*u(ix,iy,iz+2,4)+a(+1)*u(ix,iy,iz+1,4))*dzinv
 
-      ! vorticity
-      vorx = uzdy - uydz
-
-      ! penalization term
-      penaly = -mask(ix,iy,iz)*(uy-us(ix,iy,iz,2))
-      penalz = -mask(ix,iy,iz)*(uz-us(ix,iy,iz,3))
+      ! penalization term (including sponge)
+      penaly = -(chi+chi_sponge)*(uy-us(ix,iy,iz,2))
+      penalz = -(chi+chi_sponge)*(uz-us(ix,iy,iz,3))
+      penalp = -chi_sponge*p
 
       ! second derivatives
       uydydy = (b1*u(ix,iy-2,iz,2)+b2*u(ix,iy-1,iz,2)+b3*u(ix,iy,iz,2)&
-                +b4*u(ix,iy+1,iz,2)+b5*u(ix,iy+2,iz,2))*dy2inv
+               +b4*u(ix,iy+1,iz,2)+b5*u(ix,iy+2,iz,2))*dy2inv
       uydzdz = (b1*u(ix,iy,iz-2,2)+b2*u(ix,iy,iz-1,2)+b3*u(ix,iy,iz,2)&
-                +b4*u(ix,iy,iz+1,2)+b5*u(ix,iy,iz+2,2))*dz2inv
+               +b4*u(ix,iy,iz+1,2)+b5*u(ix,iy,iz+2,2))*dz2inv
 
       uzdydy = (b1*u(ix,iy-2,iz,3)+b2*u(ix,iy-1,iz,3)+b3*u(ix,iy,iz,3)&
-                +b4*u(ix,iy+1,iz,3)+b5*u(ix,iy+2,iz,3))*dy2inv
+               +b4*u(ix,iy+1,iz,3)+b5*u(ix,iy+2,iz,3))*dy2inv
       uzdzdz = (b1*u(ix,iy,iz-2,3)+b2*u(ix,iy,iz-1,3)+b3*u(ix,iy,iz,3)&
-                +b4*u(ix,iy,iz+1,3)+b5*u(ix,iy,iz+2,3))*dz2inv
+               +b4*u(ix,iy,iz+1,3)+b5*u(ix,iy,iz+2,3))*dz2inv
 
       nlk(ix,iy,iz,1) = 0.d0
-      nlk(ix,iy,iz,2) = +uz*vorx -pdy + nu*(uydydy+uydzdz) + penaly + forcing(2)
-      nlk(ix,iy,iz,3) = -uy*vorx -pdz + nu*(uzdydy+uzdzdz) + penalz + forcing(3)
-      if (mask_color(ix,iy,iz) == 0) then
-        nlk(ix,iy,iz,4) = -(c_0**2)*(uydy+uzdz) - gamma_p*p -mask(ix,iy,iz)*p
-      else
-        nlk(ix,iy,iz,4) = -(c_0**2)*(uydy+uzdz) - gamma_p*p
-      endif
+      nlk(ix,iy,iz,2) = -uy*uydy -uz*uydz -pdy + nu*(uydydy+uydzdz) + penaly + forcing(2)
+      nlk(ix,iy,iz,3) = -uy*uzdy -uz*uzdz -pdz + nu*(uzdydy+uzdzdz) + penalz + forcing(3)
+      nlk(ix,iy,iz,4) = -(c_0**2)*(uydy+uzdz) - gamma_p*p + penalp
     enddo
   enddo
 end subroutine
