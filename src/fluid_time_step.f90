@@ -244,9 +244,9 @@ subroutine RK4(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   type(diptera), intent(inout) :: Insect
   type(timetype) :: t
   real(kind=pr)::tmp1,tmp2,tmp3,tmp4
-  t = time
 
   call adjust_dt(time%time,u,time%dt_new)
+  t = time
 
   ! NLK 5th register holds old velocity
   nlk(:,:,:,:,5) = u
@@ -362,7 +362,7 @@ subroutine adjust_dt(time,u,dt1)
   real(kind=pr), intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
   integer::mpicode
   real(kind=pr), intent(out)::dt1
-  real(kind=pr)::umax,t , t1,t2
+  real(kind=pr)::umax,t , t1,t2, pmax
 
   if (dt_fixed>0.0d0) then
     !-- fix the time step no matter what. the result may be unstable.
@@ -371,7 +371,7 @@ subroutine adjust_dt(time,u,dt1)
     !-- Determine the maximum velocity field value
     !-- FSI runs just need to respect CFL for velocity
     umax = fieldmaxabs3(u(:,:,:,1:3))
-
+    pmax = fieldmax(u(:,:,:,4))
     !-- Adjust time step at 0th process
     if(mpirank == 0) then
       if(is_nan(umax)) then
@@ -379,8 +379,8 @@ subroutine adjust_dt(time,u,dt1)
         call abort(100011)
       endif
 
-      if(umax>=1.0d3) then
-        write(*,*) "Umax is very big, surely this is an error, ", umax
+      if((umax>=1.0d3) .or. (abs(pmax)>1.0e4)) then
+        write(*,*) "Umax or pmax is very big, surely this is an error, ", umax,pmax
         call abort(100012)
       endif
 
