@@ -2,9 +2,11 @@
 # variables.
 
 # If no HDF5 library is set, compile without HDF5 support
-#ifndef HDF_ROOT
-#HDF5FLAG = no
-#endif
+ifndef HDF5FLAG
+ifndef HDF_ROOT
+HDF5FLAG = no
+endif
+endif
 
 # HDF5 flag set to 'yes' by default
 ifndef HDF5FLAG
@@ -34,7 +36,12 @@ OBJS := $(FFILES:%.f90=$(OBJDIR)/%.o)
 # Files that create modules:
 MFILES = vars.f90 diff.f90 cof_p3dfft.f90 solid_solver.f90 \
 	interpolation.f90 basic_operators.f90 insects.f90 ghostpoints.f90 \
-	ini_files_parser.f90 ini_files_parser_mpi.f90 helpers.f90 hdf5_wrapper.f90
+	ini_files_parser.f90 ini_files_parser_mpi.f90 helpers.f90 
+
+ifeq ($(HDF5FLAG),yes)
+MFILES += hdf5_wrapper.f90
+endif
+
 MOBJS := $(MFILES:%.f90=$(OBJDIR)/%.o)
 
 # Source code directories (colon-separated):
