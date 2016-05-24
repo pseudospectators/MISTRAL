@@ -35,7 +35,7 @@ program MISTRAL
       !-------------------------------------------------------------------------
       method="fsi" ! We are doing fluid-structure interactions
       call get_command_argument(2,infile)
-      call get_params(infile,dummyinsect)
+      call get_params(infile,dummyinsect,.true.)
       call OnlySolidSimulation()
 
   else

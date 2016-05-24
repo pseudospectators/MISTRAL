@@ -20,7 +20,7 @@ subroutine write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
 
-  real(kind=pr) :: tmp(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
+  real(kind=pr), allocatable, dimension(:,:,:,:) :: tmp
   real(kind=pr) :: kx, ky, kz, maxdiv,maxdiv_fluid, maxdiv_loc,volume, t3
   real(kind=pr) :: concentration, conc
   real(kind=pr) :: ekinf, ekinxf, ekinyf, ekinzf
@@ -31,6 +31,7 @@ subroutine write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   real(kind=pr) :: t1
 
   t1=MPI_wtime()
+  allocate( tmp(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3) )
 
   !-----------------------------------------------------------------------------
   ! hydrodynamic forces
@@ -142,6 +143,7 @@ subroutine write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
     close(14)
   endif
 
+  deallocate( tmp )
 
   time_integrals = time_integrals + MPI_wtime()-t1
 end subroutine

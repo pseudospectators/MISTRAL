@@ -186,6 +186,9 @@ tidy:
 
 directories: ${OBJDIR}
 	@echo 'Build with HDF5 support:' $(HDF5FLAG)
+	@echo 'Compiler flags are:' $(FFLAGS)
+	@echo 'Compiler FC is: ' $(FC)
+	@echo 'HDF_ROOT is:' $(HDF_ROOT)
 
 ${OBJDIR}:
 	mkdir -p ${OBJDIR}
