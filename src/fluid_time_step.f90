@@ -359,7 +359,7 @@ subroutine adjust_dt(time,u,dt1)
   implicit none
 
   real(kind=pr), intent(in) :: time
-  real(kind=pr), intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  real(kind=pr), intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer::mpicode
   real(kind=pr), intent(out)::dt1
   real(kind=pr)::umax,t , t1,t2, pmax

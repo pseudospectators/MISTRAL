@@ -40,7 +40,8 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   endif
 
   if (mpirank == 0 ) then
-    write(*,'("Saving data, time= ",es12.4,1x," flags= ",5(i1)," name=",A," ...")',advance='no') &
+    write(*,'(80("~"))')
+    write(*,'("Saving data, time= ",es12.4,1x," flags= ",5(i1)," name=",A," ...")') &
     time%time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity,name
   endif
 
@@ -93,7 +94,9 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
 
   deallocate(tmp)
   time_save = time_save + MPI_wtime() - t1
-  if (mpirank==0) write(*,*) " ...DONE!"
+  if (mpirank==0) then
+    write(*,'(80("~"))')
+  endif
 end subroutine save_fields
 
 
@@ -116,10 +119,12 @@ subroutine dump_runtime_backup(time,nbackup,u,Insect,beams)
   type(diptera),intent(in) :: Insect
 
   character(len=18) :: filename
-  real(kind=pr) :: tmp(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),dimension(:,:,:),allocatable :: tmp
   real(kind=pr) :: t1
 
   t1=MPI_wtime() ! performance diagnostic
+
+  allocate (tmp(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 
   ! Create name for the backup file. We keep at any time at most 2 sets of
   ! backups, runtime_backupX.h5 with X=0,1
@@ -170,6 +175,8 @@ subroutine dump_runtime_backup(time,nbackup,u,Insect,beams)
 
   nbackup = 1 - nbackup
   time_bckp=time_bckp + MPI_wtime() -t1 ! Performance diagnostic
+
+  deallocate(tmp)
 
   if(mpirank == 0) write(*,'(A)') "...DONE!"
 end subroutine dump_runtime_backup
