@@ -107,9 +107,19 @@ subroutine curl_x( u, rotu )
       !-------------------------------------------------------------------------
       ! compute divergence(u) using second order centered period FD
       !-------------------------------------------------------------------------
-      ! these coefficients are the th order optimized scheme by Tamm&Webb
-      a=(/-0.02651995d0, +0.18941314d0, -0.79926643d0, 0.0d0, &
-           0.79926643d0, -0.18941314d0, 0.02651995d0/)
+      select case(iMethodOrder)
+      case ('4th')
+        ! fourth order std
+        a = (/0.d0, 1.d0/12.d0,-2.d0/3.d0,0.d0,2.d0/3.d0,-1.d0/12.d0,0.d0/)
+      case ('4th-opt')
+        ! Tam & Webb, 4th order optimized
+        a = (/-0.02651995d0, +0.18941314d0, -0.79926643d0, 0.0d0,0.79926643d0, -0.18941314d0, 0.02651995d0/)
+      case ('6th')
+        ! sixth order std
+        a = (/-1.d0/60.d0,3.d0/20.d0,-3.d0/4.d0,0.d0,3.d0/4.d0,-3.d0/20.d0,1.d0/60.d0/)
+      case default
+        call abort(98,'iMethodOrder not known.')
+      end select
 
       dxinv = 1.d0/dx
       dyinv = 1.d0/dy
@@ -220,9 +230,19 @@ subroutine divergence_x( u, divu )
       !-------------------------------------------------------------------------
       ! compute divergence(u) using second order centered period FD
       !-------------------------------------------------------------------------
-      ! these coefficients are the th order optimized scheme by Tamm&Webb
-      a=(/-0.02651995d0, +0.18941314d0, -0.79926643d0, 0.0d0, &
-           0.79926643d0, -0.18941314d0, 0.02651995d0/)
+      select case(iMethodOrder)
+      case ('4th')
+        ! fourth order std
+        a = (/0.d0, 1.d0/12.d0,-2.d0/3.d0,0.d0,2.d0/3.d0,-1.d0/12.d0,0.d0/)
+      case ('4th-opt')
+        ! Tam & Webb, 4th order optimized
+        a = (/-0.02651995d0, +0.18941314d0, -0.79926643d0, 0.0d0,0.79926643d0, -0.18941314d0, 0.02651995d0/)
+      case ('6th')
+        ! sixth order std
+        a = (/-1.d0/60.d0,3.d0/20.d0,-3.d0/4.d0,0.d0,3.d0/4.d0,-3.d0/20.d0,1.d0/60.d0/)
+      case default
+        call abort(98,'iMethodOrder not known.')
+      end select
 
       dxinv = 1.d0/dx
       dyinv = 1.d0/dy

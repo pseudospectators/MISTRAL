@@ -62,8 +62,9 @@ module vars
   !-----------------------------------------------------------------------------
 
   ! Method variables set in the program file:
-  character(len=strlen),save :: method ! mhd  or fsi
+  character(len=strlen),save :: method
   character(len=strlen),save :: dry_run_without_fluid ! just save mask function
+  character(len=strlen),save :: iMethodOrder = "4th-opt"
 
   integer,save :: neq ! number of equations
   integer,save :: nrw ! number of real work arrays in work

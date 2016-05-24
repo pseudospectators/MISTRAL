@@ -185,12 +185,10 @@ subroutine get_params(paramsfile,Insect,verbose)
   !-----------------------------------------------------------------------------
   ! Incompressibility
   !-----------------------------------------------------------------------------
-  call read_param_mpi(PARAMS,"Incompressibility","c_0",&
-       c_0, 0.d0)
-  call read_param_mpi(PARAMS,"Incompressibility","gamma_p",&
-       gamma_p, 1.d0)
-  call read_param_mpi(PARAMS,"Incompressibility","method",&
-       method,"centered_2nd")
+  call read_param_mpi(PARAMS,"Incompressibility","c_0",c_0, 0.d0)
+  call read_param_mpi(PARAMS,"Incompressibility","gamma_p",gamma_p, 0.d0)
+  call read_param_mpi(PARAMS,"Incompressibility","method",method,"centered_2nd")
+  call read_param_mpi(PARAMS,"Incompressibility","iMethodOrder",iMethodOrder,"4th-opt")
 
   !-----------------------------------------------------------------------------
   ! solid model (TODO: SAME LEVEL OF OBJECT ORIENTATION AS INSECT)

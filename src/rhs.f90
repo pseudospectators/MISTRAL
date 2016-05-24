@@ -235,12 +235,19 @@ subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams,impmode)
   ! fetch forcing term used to accelerate the mean flow
   call forcing_term(time,u,forcing)
 
-  ! Tam & Webb, 4th order optimized
-  ! a = (/-0.02651995d0, +0.18941314d0, -0.79926643d0, 0.0d0,0.79926643d0, -0.18941314d0, 0.02651995d0/)
-  ! fourth order std
-  ! a = (/0.d0, 1.d0/12.d0,-2.d0/3.d0,0.d0,2.d0/3.d0,-1.d0/12.d0,0.d0/)
-  ! sixth order std
-  a = (/-1.d0/60.d0,3.d0/20.d0,-3.d0/4.d0,0.d0,3.d0/4.d0,-3.d0/20.d0,1.d0/60.d0/)
+  select case(iMethodOrder)
+  case ('4th')
+    ! fourth order std
+    a = (/0.d0, 1.d0/12.d0,-2.d0/3.d0,0.d0,2.d0/3.d0,-1.d0/12.d0,0.d0/)
+  case ('4th-opt')
+    ! Tam & Webb, 4th order optimized
+    a = (/-0.02651995d0, +0.18941314d0, -0.79926643d0, 0.0d0,0.79926643d0, -0.18941314d0, 0.02651995d0/)
+  case ('6th')
+    ! sixth order std
+    a = (/-1.d0/60.d0,3.d0/20.d0,-3.d0/4.d0,0.d0,3.d0/4.d0,-3.d0/20.d0,1.d0/60.d0/)
+  case default
+    call abort(98,'iMethodOrder not known.')
+  end select
 
   b1 = -1.d0/12.d0
   b2 = 4.d0/3.d0
@@ -508,7 +515,7 @@ subroutine rhs_acm_4th_2d(time,u,nlk,work,mask,mask_color,us,Insect,beams,impmod
   integer::ix,iy,iz
   real(kind=pr)::uy,uz,uydy,uydz,&
   uzdy,uzdz,uydydy,uydzdz,uzdydy,uzdzdz,&
-  dyinv,dzinv,dy2inv,dz2inv,pdy,pdz,a1,a2,a4,a5,&
+  dyinv,dzinv,dy2inv,dz2inv,pdy,pdz,&
   b1,b2,b3,b4,b5,penaly,penalz,p,penalp,chi,chi_sponge
   real(kind=pr)::forcing(1:3)
   real(kind=pr)::a(-3:+3)
@@ -518,15 +525,19 @@ subroutine rhs_acm_4th_2d(time,u,nlk,work,mask,mask_color,us,Insect,beams,impmod
   ! fetch forcing term used to accelerate the mean flow
   call forcing_term(time,u,forcing)
 
-  a1 = 1.d0/12.d0
-  a2 =-2.d0/3.d0
-  a4 = 2.d0/3.d0
-  a5 = -1.d0/12.d0
-
-
-  ! Tam & Webb, 4th order optimized
-  a=(/-0.02651995d0, +0.18941314d0, -0.79926643d0, 0.0d0, &
-       0.79926643d0, -0.18941314d0, 0.02651995d0/)
+  select case(iMethodOrder)
+  case ('4th')
+    ! fourth order std
+    a = (/0.d0, 1.d0/12.d0,-2.d0/3.d0,0.d0,2.d0/3.d0,-1.d0/12.d0,0.d0/)
+  case ('4th-opt')
+    ! Tam & Webb, 4th order optimized
+    a = (/-0.02651995d0, +0.18941314d0, -0.79926643d0, 0.0d0,0.79926643d0, -0.18941314d0, 0.02651995d0/)
+  case ('6th')
+    ! sixth order std
+    a = (/-1.d0/60.d0,3.d0/20.d0,-3.d0/4.d0,0.d0,3.d0/4.d0,-3.d0/20.d0,1.d0/60.d0/)
+  case default
+    call abort(98,'iMethodOrder not known.')
+  end select
 
   b1=-1.d0/12.d0
   b2=4.d0/3.d0
