@@ -82,8 +82,9 @@ subroutine init_fields_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
         u(:,iy,iz,2) = dsin( y ) * dcos( z )
         u(:,iy,iz,3) =-dcos( y ) * dsin( z )
         ! remember that p is the total pressure, i.e. p+0.5u*u
-        u(:,iy,iz,4) =0.25d0*(dcos(2.d0*y)+dcos(2.d0*z)) + &
-                      0.5d0*(u(:,iy,iz,2)*u(:,iy,iz,2)+u(:,iy,iz,3)*u(:,iy,iz,3))
+        ! note: we changed the formulation, so now we have p static pressure
+        u(:,iy,iz,4) =0.25d0*(dcos(2.d0*y)+dcos(2.d0*z)) !+ &
+                      !0.5d0*(u(:,iy,iz,2)*u(:,iy,iz,2)+u(:,iy,iz,3)*u(:,iy,iz,3))
       enddo
     enddo
 

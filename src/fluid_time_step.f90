@@ -364,7 +364,6 @@ end subroutine AB2
 !-------------------------------------------------------------------------------
 subroutine adjust_dt(time,u,dt1)
   use vars
-  use mpi
   use basic_operators
   implicit none
 
@@ -384,6 +383,7 @@ subroutine adjust_dt(time,u,dt1)
     !-- FSI runs just need to respect CFL for velocity
     umax = fieldmaxabs3(u(:,:,:,1:3))
     pmax = fieldmax(u(:,:,:,4))
+
     !-- Adjust time step at 0th process
     if(mpirank == 0) then
       if(is_nan(umax)) then

@@ -1,3 +1,3 @@
-- RHS mustn't use vorticity formulation of non-linear term
-- rhs_acm_4th does not use sponge, only 2D version does currently => sponge mask array?
-mask(:,:,:,1:2)??
+DONE    RHS mustn't use vorticity formulation of non-linear term
+DONE    rhs_acm_4th does not use sponge, only 2D version does currently => sponge mask array? color=-1
+        6th order scheme should be sixth order also for diffusive term

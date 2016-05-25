@@ -25,9 +25,9 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   real(kind=pr) :: volume, t1
   character(len=6) :: name
 
+  t1=MPI_wtime()
   allocate(tmp(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3))
 
-  t1=MPI_wtime()
 
   !--Set up file name base
   if ( save_only_one_period == "yes" ) then
@@ -93,10 +93,10 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   endif
 
   deallocate(tmp)
-  time_save = time_save + MPI_wtime() - t1
   if (mpirank==0) then
     write(*,'(80("~"))')
   endif
+  time_save = time_save + MPI_wtime() - t1
 end subroutine save_fields
 
 

@@ -132,7 +132,6 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
 
      if(root) call save_time_stepping_info (time%it,time%it_start,time%time,t2,t1,time%dt_new,t4)
 
-     call MPI_BARRIER (MPI_COMM_WORLD,mpicode)
   enddo
 
   !-----------------------------------------------------------------------------
