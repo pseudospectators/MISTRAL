@@ -64,7 +64,7 @@ subroutine cal_drag ( t, u, mask, mask_color, us, Insect, iwrite )
         penalz = -mask(ix,iy,iz)*(u(ix,iy,iz,3)-us(ix,iy,iz,3))
 
         ! what color does the point have?
-        color = max(mask_color(ix,iy,iz),0)
+        color = max(mask_color(ix,iy,iz),int(0,kind=2))
 
         ! integrate forces + torques (note sign inversion!)
         forcex(color) = forcex(color) - penalx
@@ -286,7 +286,7 @@ subroutine cal_unst_corrections ( t, mask, mask_color, us, Insect )
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
       do ix=ra(1),rb(1)
-        color = max(mask_color(ix,iy,iz),0)
+        color = max(mask_color(ix,iy,iz),int(0,kind=2))
         ! sum up new integral as a function of color
         force_new_locx(color) = force_new_locx(color)+mask(ix,iy,iz)*us(ix,iy,iz,1)*norm
         force_new_locy(color) = force_new_locy(color)+mask(ix,iy,iz)*us(ix,iy,iz,2)*norm
@@ -358,7 +358,7 @@ subroutine cal_unst_corrections ( t, mask, mask_color, us, Insect )
         torque_new_locy0 = torque_new_locy0 + (zlev*usx - xlev*usz)
         torque_new_locz0 = torque_new_locz0 + (xlev*usy - ylev*usx)
 
-        color = max(0,mask_color(ix,iy,iz))
+        color = max(mask_color(ix,iy,iz),int(0,kind=2))
 
         ! for insects, moment of the body is computed with respect to (x0,y0,z0)
         ! but for the wings it is computed with respect tot the pivot points

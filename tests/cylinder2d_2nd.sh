@@ -13,7 +13,7 @@ sad=0
 
 
 # list of prefixes the test generates
-prefixes=(divu mask p ux uy uz vorx vory vorz)
+prefixes=(divu mask p uy uz vorx)
 # list of possible times (no need to actually have them)
 times=(000000 000200 000400 000600 000800 001000)
 

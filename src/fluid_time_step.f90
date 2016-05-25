@@ -251,21 +251,31 @@ subroutine RK4(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   ! NLK 5th register holds old velocity
   nlk(:,:,:,:,5) = u
 
-  !-- Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
+  ! Calculate fourier coeffs of nonlinear rhs and forcing
+  ! 1st step
+  ! k1 = f( t^n, u^n )
   call cal_nlk(time,u,nlk(:,:,:,:,1),work,mask,mask_color,us,Insect,beams)
 
+  ! 2nd step
+  ! k2 = f ( t^n + dt/2, u^n + dt/2 * k1 )
   u = nlk(:,:,:,:,5) + 0.5d0*time%dt_new*nlk(:,:,:,:,1)
   t%time = time%time + 0.5d0*time%dt_new
   call cal_nlk(t,u,nlk(:,:,:,:,2),work,mask,mask_color,us,Insect,beams)
 
+  ! 3rd step
+  ! k3 = f ( t^n + dt/2, u^n + dt/2 * k2 )
   u = nlk(:,:,:,:,5) + 0.5d0*time%dt_new*nlk(:,:,:,:,2)
   t%time = time%time + 0.5d0*time%dt_new
   call cal_nlk(t,u,nlk(:,:,:,:,3),work,mask,mask_color,us,Insect,beams)
 
+  ! 4th step
+  ! k4 = f ( t^n+dt, u^n + dt*k3 )
   u = nlk(:,:,:,:,5) + time%dt_new * nlk(:,:,:,:,3)
   t%time = time%time + time%dt_new
   call cal_nlk(t,u,nlk(:,:,:,:,4),work,mask,mask_color,us,Insect,beams)
 
+  ! final step
+  ! u^n+1  = u^n + dt/6 * (k1 + 2*k2 + 2*k3 + k4)
   u = nlk(:,:,:,:,5) + time%dt_new/6.d0*(nlk(:,:,:,:,1)+2.d0*nlk(:,:,:,:,2)&
       +2.d0*nlk(:,:,:,:,3)+nlk(:,:,:,:,4))
 
@@ -354,7 +364,6 @@ end subroutine AB2
 !-------------------------------------------------------------------------------
 subroutine adjust_dt(time,u,dt1)
   use vars
-  use mpi
   use basic_operators
   implicit none
 
@@ -367,11 +376,14 @@ subroutine adjust_dt(time,u,dt1)
   if (dt_fixed>0.0d0) then
     !-- fix the time step no matter what. the result may be unstable.
     dt1=dt_fixed
+    ! do not jump past final time
+    if (dt1 > tmax-time .and. tmax-time>0.d0) dt1=tmax-time
   else
     !-- Determine the maximum velocity field value
     !-- FSI runs just need to respect CFL for velocity
     umax = fieldmaxabs3(u(:,:,:,1:3))
     pmax = fieldmax(u(:,:,:,4))
+
     !-- Adjust time step at 0th process
     if(mpirank == 0) then
       if(is_nan(umax)) then
