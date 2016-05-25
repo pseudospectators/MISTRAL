@@ -1,13 +1,6 @@
 # Makefile for fsi and mhd codes. See README for necessary environment
 # variables.
 
-# If no HDF5 library is set, compile without HDF5 support
-ifndef HDF5FLAG
-ifndef HDF_ROOT
-HDF5FLAG = no
-endif
-endif
-
 # HDF5 flag set to 'yes' by default
 ifndef HDF5FLAG
 HDF5FLAG = yes

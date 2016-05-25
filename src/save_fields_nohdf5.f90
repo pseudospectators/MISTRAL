@@ -142,36 +142,35 @@ subroutine dump_runtime_backup(time,nbackup,u,Insect,beams)
   type(solid),dimension(1:nBeams),intent(in) :: beams
   type(diptera),intent(in) :: Insect
 
-  character(len=18) :: filename
-  real(kind=pr) :: tmp(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  character(len=19) :: filename
   real(kind=pr) :: t1
   integer :: error  ! error flags
+  character(len=6) :: suffix
 
   t1=MPI_wtime() ! performance diagnostic
+
+  ! Create current filename:
+  write(filename,'("runtime_backup",i1,".bin")') nbackup
 
   ! Create name for the backup file. We keep at any time at most 2 sets of 
   ! backups, runtime_backupX.h5 with X=0,1  
   if(mpirank == 0) then
      write(*,'("Dumping runtime_backup",i1,".bin (time=",es12.4,") to disk....")',&
      advance='no') nbackup, time%time
+     ! Write meta data
+     open (15, file = trim(adjustl(filename)), form='formatted', status='replace')     
+     write (15,*) "time  dt_old  dt_new  n1  it"
+     write (15,*) time%time,time%dt_old,time%dt_new,time%n1,time%it
   endif
 
-  ! Create current filename:
-  write(filename,'("runtime_backup",i1,".bin")') nbackup
+  ! Create current filename on this mpi rank
+  write(suffix,'(i0.6)') mpirank
 
   !-------------------------------------------------------------------------
   ! Write the fluid backup field
   !-------------------------------------------------------------------------
-  open (15, file = filename, form='unformatted', status='replace')     
-  write (15) time%time,time%dt_old,time%dt_new,time%n1,time%it
-  tmp(:,:,:) = u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1)
-  write (15) tmp
-  tmp(:,:,:) = u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),2)
-  write (15) tmp  
-  tmp(:,:,:) = u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3)
-  write (15) tmp  
-  tmp(:,:,:) = u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),4)
-  write (15) tmp
+  open (15, file = trim(adjustl(filename))//"."//trim(adjustl(suffix)), form='unformatted', status='replace')     
+  write (15) time%time,time%dt_old,time%dt_new,time%n1,time%it,u
   close (15)  
 
   !-------------------------------------------------------------------------
@@ -265,28 +264,23 @@ subroutine read_runtime_backup(filename,time,u,Insect,beams)
   type(diptera),intent(in) :: Insect
 
   integer :: error  ! Error flag
-  real(kind=pr) :: tmp(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  character(len=7) :: suffix
 
   if(mpirank == 0) then
      write(*,'("---------")')
      write(*,'(A)') "!!! I'm trying to resume a backup file: "//filename
   endif
   
-  call check_file_exists ( filename )
+  ! Create current filename for this mpi rank:
+  write(suffix,'(i0.6)') mpirank
+
+  call check_file_exists ( trim(adjustl(filename))//"."//trim(adjustl(suffix)) )
 
   !-------------------------------------------------------------------------
   ! Read the fluid backup field
   !-------------------------------------------------------------------------
-  open (15, file = filename, form='unformatted', status='old')     
-  read (15) time%time,time%dt_old,time%dt_new,time%n1,time%it
-  read (15) tmp
-  u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1) = tmp(:,:,:)
-  read (15) tmp
-  u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),2) = tmp(:,:,:)
-  read (15) tmp  
-  u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3) = tmp(:,:,:)
-  read (15) tmp  
-  u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),4) = tmp(:,:,:)
+  open (15, file = trim(adjustl(filename))//"."//trim(adjustl(suffix)), form='unformatted', status='old')     
+  read (15) time%time,time%dt_old,time%dt_new,time%n1,time%it,u
   close (15)  
 
   if(mpirank == 0) then
