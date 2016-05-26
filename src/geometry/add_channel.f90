@@ -123,8 +123,7 @@ subroutine add_channel(mask,mask_color,us)
       enddo
     enddo
   case default
-    write (*,*) "add_channel()::iChannel is not a known value"
-    call abort()
+    call abort("add_channel()::iChannel is not a known value")
   end select
 
 end subroutine add_channel

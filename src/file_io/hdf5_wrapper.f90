@@ -143,7 +143,7 @@ subroutine read_field_hdf5 ( filename, dsetname, rared, rbred, field )
   call h5sget_simple_extent_dims_f(filespace, dims_file, dims_dummy, error)
 
   if ( (dims_global(1)/=dims_file(1)).or.(dims_global(2)/=dims_file(2)).or.(dims_global(3)/=dims_file(3)) ) then
-    if (root) write(*,*) "read_hdf5 error: file dimensions do not match"
+    write(*,*) "read_hdf5 error: file dimensions do not match"
     call MPI_ABORT(MPI_COMM_WORLD,10004,mpicode)
   endif
 

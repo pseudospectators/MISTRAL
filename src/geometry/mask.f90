@@ -57,8 +57,7 @@ subroutine create_mask(time,mask,mask_color,us,Insect,beams,iwrite)
     case("none")
       mask = 0.d0
     case default
-      write (*,*) "iMask="//iMask//" not properly set; stopping."
-      call abort()
+      call abort("iMask="//iMask//" not properly set; stopping.")
     end select
   endif
 

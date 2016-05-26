@@ -189,7 +189,7 @@ module vars
   !*****************************************************************************
   !*****************************************************************************
     interface abort
-      module procedure abort1, abort2, abort4, abort3
+      module procedure abort2, abort4, abort3
     end interface
 
     interface in_domain
@@ -281,23 +281,13 @@ module vars
     !---------------------------------------------------------------------------
     ! abort run, with or without bye-bye message
     !---------------------------------------------------------------------------
-    subroutine abort1
-      use mpi
-      implicit none
-      integer :: mpicode
-
-      if (mpirank==0) write(*,*) "Killing run..."
-      call MPI_abort(MPI_COMM_WORLD,666,mpicode)
-    end subroutine abort1
-    !---------------------------------------------------------------------------
     subroutine abort2(msg)
       use mpi
       implicit none
       integer :: mpicode
       character(len=*), intent(in) :: msg
 
-      if (mpirank==0) write(*,*) "Killing run..."
-      if (mpirank==0) write(*,*) msg
+      write(*,*) msg
       call MPI_abort(MPI_COMM_WORLD,666,mpicode)
     end subroutine abort2
     !---------------------------------------------------------------------------
@@ -307,7 +297,6 @@ module vars
       integer, intent(in) :: code
       integer :: mpicode
 
-      if (mpirank==0) write(*,*) "Killing run..."
       call MPI_abort(MPI_COMM_WORLD,code,mpicode)
     end subroutine abort3
     !---------------------------------------------------------------------------
@@ -318,8 +307,7 @@ module vars
       integer, intent(in) :: code
       character(len=*), intent(in) :: msg
 
-      if (mpirank==0) write(*,*) "Killing run..."
-      if (mpirank==0) write(*,*) msg
+      write(*,*) msg
       call MPI_abort(MPI_COMM_WORLD,code,mpicode)
     end subroutine abort4
 

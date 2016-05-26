@@ -87,8 +87,7 @@ subroutine decomposition_initialize
 
   !-- Check dimensions
   if(mpidims(1)*mpidims(2)/=mpisize) then
-     print *, 'wrong mpidims: change mpisize'
-     call abort()
+     call abort(31,'wrong mpidims: change mpisize')
   endif
 
   !-- Set subdomain bounds
@@ -111,7 +110,7 @@ subroutine decomposition_initialize
   if ( rb(2)-ra(2)+1<2*ng .or. rb(3)-ra(3)+1<2*ng ) then
     if (mpirank==0) write(*,*) "Too many CPUs: the ghosts span more than one CPU"
     if (mpirank==0) write(*,*) "y", rb(2)-ra(2)+1, "z", rb(3)-ra(3)+1
-    call abort()
+    call abort("Too many CPUs: the ghosts span more than one CPU")
   endif
 
   !-- Allocate domain partitioning tables and gather sizes from all processes
@@ -145,7 +144,7 @@ subroutine p3dfft_stub(dims_in,nx,ny,nz,mpi_comm_in,mpi_taskid,mpi_tasks,mpi_com
 
   if(nx .le. 0 .or. ny .le. 0 .or. nz .le. 0) then
      print *,'Invalid dimensions :',nx,ny,nz
-     call abort()
+     call abort('Invalid dimensions :')
   endif
 
   mpicomm = mpi_comm_in
@@ -154,7 +153,7 @@ subroutine p3dfft_stub(dims_in,nx,ny,nz,mpi_comm_in,mpi_taskid,mpi_tasks,mpi_com
 
   if(dims_in(1) .le. 0 .or. dims_in(2) .le. 0 .or.  dims_in(1)*dims_in(2) .ne. numtasks) then
      print *,'Invalid processor geometry: ',dims,' for ',numtasks, 'tasks'
-     call abort()
+     call abort('Invalid processor geometry: ')
   endif
 
   if(taskid .eq. 0) then

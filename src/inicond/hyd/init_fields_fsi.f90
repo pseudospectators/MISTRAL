@@ -172,9 +172,7 @@ subroutine init_fields_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
         !--------------------------------------------------
         ! unknown inicond : error
         !--------------------------------------------------
-        if (mpirank==0) write (*,*) inicond
-        if (mpirank==0) write (*,*) '??? ERROR: Invalid initial condition'
-        call abort()
+        call abort('??? ERROR: Invalid initial condition '//inicond)
      endif
   end select
 

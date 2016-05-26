@@ -192,8 +192,7 @@ subroutine adjust_dt_impl(time,u,dt1,chflag)
      !-- Adjust time step at 0th process
      if(mpirank == 0) then
         if(is_nan(umax)) then
-           write(*,*) "Evolved field contains a NAN: aborting run."
-           call abort()
+           call abort("Evolved field contains a NAN: aborting run.")
         endif
 
         !-- Impose the CFL condition.
@@ -771,7 +770,7 @@ subroutine factorize_loc1d(mat,ipiv,nn)
   call dgetrf (nn,nn,mat,nn,ipiv,error)
   if (error .ne. 0) then
     write(*,*) "!!! Fatal: dgetrf error.", error
-    call abort()
+    call abort("!!! Fatal: dgetrf error.")
   endif
   time_LAPACK = time_LAPACK + MPI_wtime() - t0
 end subroutine factorize_loc1d
@@ -803,7 +802,7 @@ subroutine solve_loc1d (mat,ipiv,rhs,x,nn)
   call dgetrs ('N',nn,1,mat,nn,ipiv,x,nn,error)
   if (error .ne. 0) then
     write(*,*) "!!! Fatal: dgetrs error.", error
-    call abort()
+    call abort("!!! Fatal: dgetrs error.")
   endif
   time_LAPACK = time_LAPACK + MPI_wtime() - t0
 end subroutine solve_loc1d
@@ -828,7 +827,7 @@ subroutine factorize_tri_loc1d(diag,nn)
   call dpttrf (nn,diag(1:nn,1),diag(1:nn-1,2),error)
   if (error .ne. 0) then
     write(*,*) "!!! Fatal: dpttrf error.", error
-    call abort()
+    call abort("!!! Fatal: dpttrf error.")
   endif
   time_LAPACK = time_LAPACK + MPI_wtime() - t0
 end subroutine factorize_tri_loc1d
@@ -858,7 +857,7 @@ subroutine solve_tri_loc1d (diag,rhs,x,nn)
   call dpttrs (nn,1,diag(1:nn,1),diag(1:nn-1,2),x,nn,error)
   if (error .ne. 0) then
     write(*,*) "!!! Fatal: dpttrs error.", error
-    call abort()
+    call abort("!!! Fatal: dpttrs error.")
   endif
   time_LAPACK = time_LAPACK + MPI_wtime() - t0
 end subroutine solve_tri_loc1d

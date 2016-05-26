@@ -250,7 +250,7 @@ subroutine Read_Single_File ( filename, field )
       write (*,'(A)') "This happens if ra(:) and rb(:) are not properly initialized."
       write (*,'("in memory:   nx=",i4," ny=",i4," nz=",i4)') nx,ny,nz
       write (*,'("but in file: nx=",i4," ny=",i4," nz=",i4)') nxyz
-      call abort(125)
+      call abort(125,"ERROR! Resolution mismatch")
     endif
   endif
 
@@ -318,7 +318,7 @@ subroutine read_runtime_backup(filename,time,u,Insect,beams)
     write (*,'(A)') "ERROR! Resolution mismatch"
     write (*,'("in memory:   nx=",i4," ny=",i4," nz=",i4)') nx,ny,nz
     write (*,'("but in file: nx=",i4," ny=",i4," nz=",i4)') nx_file,ny_file,nz_file
-    call abort(77776)
+    call abort(77776,"ERROR! Resolution mismatch")
   endif
 
   call read_field_backup( filename,"ux",u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1))

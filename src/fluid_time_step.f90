@@ -41,8 +41,7 @@ subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   case("FSI_RK4_semiimplicit")
       call FSI_RK4_semiimplicit(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   case default
-      if (root) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
-      call abort()
+      call abort("Error! iTimeMethodFluid unknown. Abort.")
   end select
 
   ! Force zero mode for mean flow
@@ -87,8 +86,7 @@ subroutine FSI_RK2_semiimplicit(time,u,nlk,work,mask,mask_color,us,Insect,beams)
 
   ! useful error messages
   if (use_solid_model/="yes") then
-   write(*,*) "using FSI_RK2_semiimplicit without solid model?"
-   call abort()
+   call abort("using FSI_RK2_semiimplicit without solid model?")
   endif
 
   !---------------------------------------------------------------------------
@@ -144,8 +142,7 @@ subroutine FSI_RK4_semiimplicit(time,u,nlk,work,mask,mask_color,us,Insect,beams)
 
   ! useful error messages
   if (use_solid_model/="yes") then
-   write(*,*) "using FSI_RK2_semiimplicit without solid model?"
-   call abort()
+   call abort("using FSI_RK2_semiimplicit without solid model?")
   endif
 
   !---------------------------------------------------------------------------
@@ -333,7 +330,7 @@ subroutine AB2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   if (time%n0==time%n1 .or. time%n0<1 .or. time%n0>2 .or. time%n1<1 .or. time%n1>2) then
     if(mpirank==0) write(*,*) time%n0, time%n1
     if(mpirank==0) write(*,*) "In AB2, the registers n0,n1 are not well defned"
-    call abort()
+    call abort("In AB2, the registers n0,n1 are not well defned")
   endif
 
   call adjust_dt(time%time,u,time%dt_new)
@@ -387,13 +384,12 @@ subroutine adjust_dt(time,u,dt1)
     !-- Adjust time step at 0th process
     if(mpirank == 0) then
       if(is_nan(umax)) then
-        write(*,*) "Evolved field contains a NAN: aborting run."
-        call abort(100011)
+        call abort(100011,"Evolved field contains a NAN: aborting run.")
       endif
 
       if((umax>=1.0d3) .or. (abs(pmax)>1.0e4)) then
         write(*,*) "Umax or pmax is very big, surely this is an error, ", umax,pmax
-        call abort(100012)
+        call abort(100012,"Umax or pmax is very big, surely this is an error")
       endif
 
       !-- Impose the CFL condition.

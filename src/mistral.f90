@@ -127,9 +127,7 @@ subroutine Start_Simulation()
   elseif (iTimeMethodFluid=="FSI_RK4_semiimplicit") then
     nrhs = 5
   else
-    if (root) write(*,*) "mistral.f90 :: error: iTimeMethodFluid is unknown"
-    if (root) write(*,*) iTimeMethodFluid
-    call abort()
+    call abort("mistral.f90 :: error: iTimeMethodFluid is unknown "//iTimeMethodFluid )
   endif
 
   !-----------------------------------------------------------------------------

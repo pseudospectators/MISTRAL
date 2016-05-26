@@ -903,7 +903,7 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
   case default
     write (*,*) "Insect module: trying to set up fourier descriptors for wing&
                 & shape but the type Insect%WingShape is unknown! :: "// Insect%WingShape
-    call abort()
+    call abort("Insect%WingShape is unknown")
   end select
 
 end subroutine Setup_Wing_Fourier_coefficients
