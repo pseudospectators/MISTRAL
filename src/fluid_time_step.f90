@@ -372,7 +372,7 @@ subroutine adjust_dt(time,u,dt1)
 
   if (dt_fixed>0.0d0) then
     !-- fix the time step no matter what. the result may be unstable.
-    dt1=dt_fixed
+    dt1 = dt_fixed
     ! do not jump past final time
     if (dt1 > tmax-time .and. tmax-time>0.d0) dt1=tmax-time
   else
@@ -383,36 +383,18 @@ subroutine adjust_dt(time,u,dt1)
 
     !-- Adjust time step at 0th process
     if(mpirank == 0) then
-      if(is_nan(umax)) then
-        call abort(100011,"Evolved field contains a NAN: aborting run.")
-      endif
-
-      if((umax>=1.0d3) .or. (abs(pmax)>1.0e4)) then
+      if((umax>=1.0d3) .or. (abs(pmax)>1.0e4) .or. (is_nan(umax))) then
         write(*,*) "Umax or pmax is very big, surely this is an error, ", umax,pmax
         call abort(100012,"Umax or pmax is very big, surely this is an error")
       endif
 
-      !-- Impose the CFL condition.
-      if (umax >= 1.0d-8) then
-        if (nx==1) then
-          ! 2D case
-          dt1=min(dy,dz)*cfl/umax
-        else
-          ! 3D case
-          dt1=min(dx,dy,dz)*cfl/umax
-        endif
-      else
-        !-- umax is very very small
-        dt1=1.0d-3
-      endif
-
-      ! CFL condition for speed of sound
+      ! CFL condition
       if (nx==1) then
         ! 2D case
-        dt1 = min( dt1, min(dy,dz)*cfl/c_0 )
+        dt1 = min(dy,dz)*cfl / (c_0+umax)
       else
         ! 3D case
-        dt1 = min( dt1, min(dx,dy,dz)*cfl/c_0 )
+        dt1 = min(dx,dy,dz)*cfl / (c_0+umax)
       endif
 
       !-- impose max dt, if specified

@@ -70,9 +70,6 @@ subroutine read_field_hdf5 ( filename, dsetname, rared, rbred, field )
   integer(hsize_t),  dimension(rank) :: stride = 1
   integer :: error,mpicode,mindim,maxdim  ! error flags
 
-  ! what follows is for the attribute "time"
-  integer, parameter :: arank = 1
-
   ! determine size of memory (i.e. the entire array). note we assume the file
   ! contains the right amount of data, which must be ensured outside of this function
   call MPI_ALLREDUCE ( rared(1), mindim,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,mpicode)

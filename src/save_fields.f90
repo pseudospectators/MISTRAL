@@ -33,15 +33,15 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   if ( save_only_one_period == "yes" ) then
     ! overwrite files from last period to save disk space
     ! i.e. t=1.05 is written to t=0.05, as well as 2.05 and 3.05
-    write(name,'(i6.6)') floor( (time%time-real(floor(time%time/tsave_period)))*1000.d0 )
+    write(name,'(i6.6)') nint( (time%time-real(floor(time%time/tsave_period)))*1000.d0 )
   else
     ! name is just the time
-    write(name,'(i6.6)') floor(time%time*1000.d0)
+    write(name,'(i6.6)') nint(time%time*1000.d0)
   endif
 
   if (mpirank == 0 ) then
     write(*,'(80("~"))')
-    write(*,'("Saving data, time= ",es12.4,1x," flags= ",5(i1)," name=",A," ...")') &
+    write(*,'("Saving data, time= ",es15.8,1x," flags= ",5(i1)," name=",A," ...")') &
     time%time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity,name
   endif
 
@@ -121,6 +121,7 @@ subroutine dump_runtime_backup(time,nbackup,u,Insect,beams)
   character(len=18) :: filename
   real(kind=pr),dimension(:,:,:),allocatable :: tmp
   real(kind=pr) :: t1
+  logical :: switch_back
 
   t1=MPI_wtime() ! performance diagnostic
 
@@ -129,8 +130,14 @@ subroutine dump_runtime_backup(time,nbackup,u,Insect,beams)
   ! Create name for the backup file. We keep at any time at most 2 sets of
   ! backups, runtime_backupX.h5 with X=0,1
   if(mpirank == 0) then
-     write(*,'("Dumping runtime_backup",i1,".h5 (time=",es12.4,") to disk....")',&
+     write(*,'("Dumping runtime_backup",i1,".h5 (time=",es15.8,") to disk....")',&
      advance='no') nbackup, time%time
+  endif
+
+  switch_back = .false.
+  if (field_precision/="double") then
+    field_precision = "double"
+    switch_back = .true.
   endif
 
   ! Create current filename:
@@ -177,6 +184,10 @@ subroutine dump_runtime_backup(time,nbackup,u,Insect,beams)
   time_bckp=time_bckp + MPI_wtime() -t1 ! Performance diagnostic
 
   deallocate(tmp)
+
+  if (switch_back) then
+    field_precision = "single"
+  endif
 
   if(mpirank == 0) write(*,'(A)') "...DONE!"
 end subroutine dump_runtime_backup
@@ -326,6 +337,11 @@ subroutine read_runtime_backup(filename,time,u,Insect,beams)
   call read_field_backup( filename,"uz",u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3))
   call read_field_backup( filename,"p",u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),4))
 
+  call checknan(u(:,:,:,1),'recently read backup file ux!!')
+  call checknan(u(:,:,:,2),'recently read backup file uy!!')
+  call checknan(u(:,:,:,3),'recently read backup file uz!!')
+  call checknan(u(:,:,:,4),'recently read backup file p !!')
+
   if(mpirank == 0) then
      write(*,'("time=",es15.8," dt0=",es15.8)') time%time, time%dt_old
      write(*,'("!!! DONE READING BACKUP (thats good news!)")')
@@ -353,8 +369,6 @@ subroutine read_field_backup(filename,dsetname,field)
   endif
 
   call read_field_hdf5( filename, dsetname, ra, rb, field )
-  call checknan(field,'recently read backup file!!')
-
 end subroutine read_field_backup
 
 
