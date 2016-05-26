@@ -286,7 +286,8 @@ module vars
       implicit none
       integer :: mpicode
       character(len=*), intent(in) :: msg
-
+      ! it produces a  lot of output for all procs to write the message, but if
+      ! root does not call this routine, you don't see anything...
       write(*,*) msg
       call MPI_abort(MPI_COMM_WORLD,666,mpicode)
     end subroutine abort2
@@ -296,7 +297,7 @@ module vars
       implicit none
       integer, intent(in) :: code
       integer :: mpicode
-
+      ! at least with the error code you can find where the code aborted...
       call MPI_abort(MPI_COMM_WORLD,code,mpicode)
     end subroutine abort3
     !---------------------------------------------------------------------------
@@ -306,7 +307,8 @@ module vars
       integer :: mpicode
       integer, intent(in) :: code
       character(len=*), intent(in) :: msg
-
+      ! it produces a  lot of output for all procs to write the message, but if
+      ! root does not call this routine, you don't see anything...
       write(*,*) msg
       call MPI_abort(MPI_COMM_WORLD,code,mpicode)
     end subroutine abort4

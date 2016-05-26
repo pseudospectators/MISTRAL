@@ -118,10 +118,14 @@ subroutine synchronize_ghosts_FD_z_mpi ( fld,nc )
   real(kind=pr),intent(inout) :: fld(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nc)
   ! Local variables
   integer :: statu(MPI_STATUS_SIZE),nnl,nnr,disp,dir,source,dest,mpicode
-  real(kind=pr) :: fld_send_l(ga(1):gb(1),ga(2):gb(2),ra(3):(2*ra(3)-ga(3)-1),1:nc),&
-                   fld_send_r(ga(1):gb(1),ga(2):gb(2),(2*rb(3)-gb(3)+1):rb(3),1:nc)
-  real(kind=pr) :: fld_recv_l(ga(1):gb(1),ga(2):gb(2),ga(3):(ra(3)-1),1:nc),&
-                   fld_recv_r(ga(1):gb(1),ga(2):gb(2),(rb(3)+1):gb(3),1:nc)
+  real(kind=pr),allocatable,dimension(:,:,:,:) :: fld_send_l,fld_send_r
+  real(kind=pr),allocatable,dimension(:,:,:,:) :: fld_recv_l,fld_recv_r
+
+  allocate(fld_send_l(ga(1):gb(1),ga(2):gb(2),ra(3):(2*ra(3)-ga(3)-1),1:nc))
+  allocate(fld_send_r(ga(1):gb(1),ga(2):gb(2),(2*rb(3)-gb(3)+1):rb(3),1:nc))
+  allocate(fld_recv_l(ga(1):gb(1),ga(2):gb(2),ga(3):(ra(3)-1),1:nc))
+  allocate(fld_recv_r(ga(1):gb(1),ga(2):gb(2),(rb(3)+1):gb(3),1:nc))
+
   ! Size of buffer arrays
   nnl = (ra(3)-ga(3))*(gb(2)-ga(2)+1)*(gb(1)-ga(1)+1)*nc
   nnr = (gb(3)-rb(3))*(gb(2)-ga(2)+1)*(gb(1)-ga(1)+1)*nc
@@ -147,6 +151,8 @@ subroutine synchronize_ghosts_FD_z_mpi ( fld,nc )
   ! Copy data to output array
   fld(ga(1):gb(1),ga(2):gb(2),ga(3):(ra(3)-1),1:nc) = fld_recv_l(:,:,:,1:nc)
   fld(ga(1):gb(1),ga(2):gb(2),(rb(3)+1):gb(3),1:nc) = fld_recv_r(:,:,:,1:nc)
+
+  deallocate( fld_send_l,fld_send_r,fld_recv_l,fld_recv_r)
 end subroutine synchronize_ghosts_FD_z_mpi
 
 !-------------------------------------------------------------------------------
@@ -161,10 +167,14 @@ subroutine synchronize_ghosts_FD_y_mpi ( fld,nc )
   real(kind=pr),intent(inout) :: fld(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nc)
   ! Local variables
   integer :: statu(MPI_STATUS_SIZE),nnl,nnr,disp,dir,source,dest,mpicode
-  real(kind=pr) :: fld_send_l(ga(1):gb(1),ra(2):(2*ra(2)-ga(2)-1),ga(3):gb(3),1:nc),&
-                   fld_send_r(ga(1):gb(1),(2*rb(2)-gb(2)+1):rb(2),ga(3):gb(3),1:nc)
-  real(kind=pr) :: fld_recv_l(ga(1):gb(1),ga(2):(ra(2)-1),ga(3):gb(3),1:nc),&
-                   fld_recv_r(ga(1):gb(1),(rb(2)+1):gb(2),ga(3):gb(3),1:nc)
+  real(kind=pr),allocatable,dimension(:,:,:,:) :: fld_send_l,fld_send_r
+  real(kind=pr),allocatable,dimension(:,:,:,:) :: fld_recv_l,fld_recv_r
+
+  allocate(fld_send_l(ga(1):gb(1),ra(2):(2*ra(2)-ga(2)-1),ga(3):gb(3),1:nc))
+  allocate(fld_send_r(ga(1):gb(1),(2*rb(2)-gb(2)+1):rb(2),ga(3):gb(3),1:nc))
+  allocate(fld_recv_l(ga(1):gb(1),ga(2):(ra(2)-1),ga(3):gb(3),1:nc))
+  allocate(fld_recv_r(ga(1):gb(1),(rb(2)+1):gb(2),ga(3):gb(3),1:nc))
+
   ! Size of buffer arrays
   nnl = (ra(2)-ga(2))*(gb(3)-ga(3)+1)*(gb(1)-ga(1)+1)*nc
   nnr = (gb(2)-rb(2))*(gb(3)-ga(3)+1)*(gb(1)-ga(1)+1)*nc
@@ -190,6 +200,8 @@ subroutine synchronize_ghosts_FD_y_mpi ( fld,nc )
   ! Copy data to output array
   fld(ga(1):gb(1),ga(2):(ra(2)-1),ga(3):gb(3),1:nc) = fld_recv_l(:,:,:,1:nc)
   fld(ga(1):gb(1),(rb(2)+1):gb(2),ga(3):gb(3),1:nc) = fld_recv_r(:,:,:,1:nc)
+
+  deallocate( fld_send_l,fld_send_r,fld_recv_l,fld_recv_r)
 end subroutine synchronize_ghosts_FD_y_mpi
 
 !-------------------------------------------------------------------------------
