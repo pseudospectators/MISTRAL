@@ -57,7 +57,8 @@ endif
 #SX compiler
 ifeq ($(FC),sxmpif90)
 FFLAGS += -I$(OBJDIR)
-FFLAGS += -R2 -Wf"-pvctl fullmsg" -ftrace -f2003
+#FFLAGS += -R2 -Wf"-pvctl fullmsg" -ftrace -f2003
+FFLAGS += -R0 -P stack -C hopt -pi nest=2 -pi exp="periodize_coordinate" expin="src/vars.f90" -f2003
 PPFLAG =
 else
 
