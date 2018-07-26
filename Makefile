@@ -9,14 +9,14 @@ FFILES = rhs.f90 fluid_time_step.f90 init_fields.f90 \
 	draw_plate.f90 draw_sphere.f90 \
         kineloader.f90 rotation_matrices.f90 \
         add_channel.f90 add_cavity.f90 \
-        noncircular_cylinder.f90 
+        noncircular_cylinder.f90
 
 # Object and module directory:
 OBJDIR=obj
 OBJS := $(FFILES:%.f90=$(OBJDIR)/%.o)
 
 # Files that create modules:
-MFILES = vars.f90 diff.f90 kine.f90 cof_p3dfft.f90 \
+MFILES = vars.f90 diff.f90 kine.f90 cof_p3dfft.f90 module_helpers.f90 \
 	interpolation.f90 basic_operators.f90 insects.f90 ghostpoints.f90
 MOBJS := $(MFILES:%.f90=$(OBJDIR)/%.o)
 
@@ -119,6 +119,8 @@ $(OBJDIR)/basic_operators.o: basic_operators.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_
 	$(OBJDIR)/ghostpoints.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/ghostpoints.o: ghostpoints.f90 $(OBJDIR)/vars.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/module_helpers.o: module_helpers.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 # Compile remaining objects from Fortran files.

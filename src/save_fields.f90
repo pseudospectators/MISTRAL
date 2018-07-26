@@ -893,7 +893,7 @@ subroutine read_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
 
   if ( (nx_file.ne.nx).or.(nx_file.ne.nx).or.(nx_file.ne.nx)) then
      write (*,'(A)') "!!! Thats odd...the backup you're trying to resume doesn't have the same nx,ny,nz"
-     write (*,'(A)') "I'll leave you crying and commit suicide here."
+     write (*,'(A)') "I'll leave you crying and commit abort here."
      call abort()
   endif
 
