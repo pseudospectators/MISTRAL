@@ -66,8 +66,8 @@ subroutine write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   !-----------------------------------------------------------------------------
   ! fluid energy and dissipation
   !-----------------------------------------------------------------------------
-  ! ! total kinetic energy (including solid)
-  ! call compute_energies(u(:,:,:,1:3),ekin,ekinx,ekiny,ekinz)
+  ! total kinetic energy (including solid)
+  call compute_energies(u(:,:,:,1:3),ekin,ekinx,ekiny,ekinz)
   ! ! fluid kinetic energy (excluding solid)
   ! nlk(:,:,:,1,1)=u(:,:,:,1)*(1.d0-mask*eps)
   ! nlk(:,:,:,2,1)=u(:,:,:,2)*(1.d0-mask*eps)
@@ -75,12 +75,13 @@ subroutine write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   ! tmp(:,:,:,:) = nlk(:,:,:,1:3,1)
   ! call compute_energies(tmp,ekinf,ekinxf,ekinyf,ekinzf)
   !
-  ! ! compute dissipation rate
-  ! call curl( u(:,:,:,1:3), tmp )
-  ! nlk(:,:,:,1:3,1) = tmp
-  ! ! dissipation in the whole domain:
-  ! tmp(:,:,:,:) = nlk(:,:,:,1:3,1)
-  ! call compute_energies(tmp,diss,dissx,dissy,dissz)
+  ! compute dissipation rate
+  call curl( u(:,:,:,1:3), tmp )
+  nlk(:,:,:,1:3,1) = tmp
+  ! dissipation in the whole domain:
+  tmp(:,:,:,:) = nlk(:,:,:,1:3,1)
+  call compute_energies(tmp,diss,dissx,dissy,dissz)
+  
   ! ! again consider only fluid domain
   ! nlk(:,:,:,1,1)=nlk(:,:,:,1,1)*(1.d0-mask*eps)
   ! nlk(:,:,:,2,1)=nlk(:,:,:,2,1)*(1.d0-mask*eps)
