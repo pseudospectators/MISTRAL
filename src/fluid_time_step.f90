@@ -118,9 +118,7 @@ subroutine adjust_dt(time,u,dt1)
         !-- stop exactly at tmax
         if (dt1 > tmax-time .and. tmax-time>0.d0) dt1=tmax-time
     else
-        !-- FSI runs just need to respect CFL for velocity
-        !tmp(:,:,:,:) = u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
-        !umax = fieldmaxabs3(tmp)
+        
         umax = fieldmaxabs3(u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3))
 
         !-- Adjust time step at 0th process
@@ -130,18 +128,16 @@ subroutine adjust_dt(time,u,dt1)
                 call abort()
             endif
 
+            ! this appears to be the correct scale:
+            umax = umax + sqrt( c_0**2 + umax**2)
+
             !-- Impose the CFL condition.
-            if (umax >= 1.0d-8) then
-                if (nx==1) then
-                    ! 2D case
-                    dt1=min(dy,dz)*cfl/umax
-                else
-                    ! 3D case
-                    dt1=min(dx,dy,dz)*cfl/umax
-                endif
+            if (nx==1) then
+                ! 2D case
+                dt1 = min(dy,dz)*cfl/umax
             else
-                !-- umax is very very small
-                dt1=1.0d-3
+                ! 3D case
+                dt1 = min(dx,dy,dz)*cfl/umax
             endif
 
             !-- Impose penalty stability condition: dt cannot be larger than eps
@@ -156,14 +152,6 @@ subroutine adjust_dt(time,u,dt1)
                 dt1=tintegral
             endif
 
-            ! CFL condition for speed of sound
-            if (nx==1) then
-                ! 2D case
-                dt1 = min( dt1, min(dy,dz)*cfl/c_0 )
-            else
-                ! 3D case
-                dt1 = min( dt1, min(dx,dy,dz)*cfl/c_0 )
-            endif
 
             !-- impose max dt, if specified
             if (dt_max>0.d0) dt1=min(dt1,dt_max)
