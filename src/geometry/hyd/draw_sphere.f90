@@ -6,7 +6,7 @@ subroutine draw_sphere(mask, mask_color, us)
   real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  
+
   integer :: ix, iy, iz
   real (kind=pr) :: x, y, z, tmp, R, N_smooth
 
@@ -18,7 +18,7 @@ subroutine draw_sphere(mask, mask_color, us)
       y=dble(iy)*dy
       do ix=ra(1),rb(1)
         x=dble(ix)*dx
-        
+
         R = dsqrt( (x-x0)**2 + (y-y0)**2 + (z-z0)**2 )
         if ( R <= 0.5d0*length+2.d0*N_smooth*max(dx,dy,dz) ) then
           call SmoothStep (tmp, R, 0.5d0*length , N_smooth*max(dx,dy,dz))
@@ -39,7 +39,7 @@ end subroutine draw_sphere
 subroutine draw_cylinder_x(mask, mask_color, us)
   use vars
   implicit none
-  
+
   real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
@@ -76,8 +76,8 @@ end subroutine draw_cylinder_x
 subroutine draw_moving_cylinder_x(time, mask, mask_color, us)
   use vars
   implicit none
-  
-  type(timetype)::time
+
+  real(kind=pr)::time
   real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
@@ -87,7 +87,7 @@ subroutine draw_moving_cylinder_x(time, mask, mask_color, us)
 
   ! Velocity and positions of the cylinder
   Vc = -1.0
-  yc = y0 + Vc * time%time
+  yc = y0 + Vc * time
 
   N_smooth = 1.5d0
 
@@ -111,6 +111,3 @@ subroutine draw_moving_cylinder_x(time, mask, mask_color, us)
     enddo
   enddo
 end subroutine draw_moving_cylinder_x
-
-
-

@@ -294,11 +294,11 @@ real(kind=pr) function fieldmax( inx )
   use mpi
   use vars
   implicit none
-  real(kind=pr),intent(inout):: inx(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout):: inx(1:,1:,1:)
   real(kind=pr) :: max_local, max_global
   integer :: mpicode
 
-  max_local = maxval(inx(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
+  max_local = maxval(inx)
   call MPI_ALLREDUCE (max_local,max_global,1,&
        MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode)
   ! return the value
@@ -310,11 +310,11 @@ end function fieldmax
 !-------------------------------------------------------------------------------
 real(kind=pr) function fieldmin( inx )
   implicit none
-  real(kind=pr),intent(inout):: inx(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout):: inx(1:,1:,1:)
   real(kind=pr) :: min_local, min_global
   integer :: mpicode
 
-  min_local = minval(inx(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
+  min_local = minval(inx)
   call MPI_ALLREDUCE (min_local,min_global,1,&
        MPI_DOUBLE_PRECISION,MPI_MIN,MPI_COMM_WORLD,mpicode)
   ! return the value
@@ -327,12 +327,12 @@ real(kind=pr) function fieldmean( inx )
   use mpi
   use vars
   implicit none
-  real(kind=pr),intent(in):: inx(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(in):: inx(1:,1:,1:)
   real(kind=pr) :: mean_local, mean_global
   integer :: mpicode, npoints
 
   ! number of points on local CPU
-  npoints = (rb(1)-ra(1)+1)*(rb(2)-ra(2)+1)*(rb(3)-ra(3)+1)
+  npoints = size(inx)
 
   mean_local = sum(inx) / dble(npoints)
   call MPI_ALLREDUCE (mean_local,mean_global,1,&
@@ -350,8 +350,10 @@ real(kind=pr) function fieldmaxabs3( inx )
   real(kind=pr),intent(inout) :: inx(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
   real(kind=pr) :: max_local, max_global, value
   integer :: mpicode
+  
   integer :: ix, iy, iz
   max_local = 0.d0
+
   do ix = ra(1), rb(1)
     do iy = ra(2), rb(2)
        do iz = ra(3), rb(3)
