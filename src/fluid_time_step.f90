@@ -391,10 +391,10 @@ subroutine adjust_dt(time,u,dt1)
       ! CFL condition
       if (nx==1) then
         ! 2D case
-        dt1 = min(dy,dz)*cfl / (c_0+umax)
+        dt1 = min(dy,dz)*cfl / (umax+ sqrt(c_0**2+umax**2))
       else
         ! 3D case
-        dt1 = min(dx,dy,dz)*cfl / (c_0+umax)
+        dt1 = min(dx,dy,dz)*cfl / (umax+ sqrt(c_0**2+umax**2))
       endif
 
       !-- impose max dt, if specified
