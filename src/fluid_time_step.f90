@@ -118,7 +118,7 @@ subroutine adjust_dt(time,u,dt1)
         !-- stop exactly at tmax
         if (dt1 > tmax-time .and. tmax-time>0.d0) dt1=tmax-time
     else
-        
+
         umax = fieldmaxabs3(u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3))
 
         !-- Adjust time step at 0th process
@@ -130,6 +130,8 @@ subroutine adjust_dt(time,u,dt1)
 
             ! this appears to be the correct scale:
             umax = umax + sqrt( c_0**2 + umax**2)
+
+            if (umax>1.0e3) call abort(9999,"Very large velocity")
 
             !-- Impose the CFL condition.
             if (nx==1) then
