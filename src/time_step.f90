@@ -98,28 +98,6 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,params_file)
         continue_timestepping=.false.
      endif
 
-     !-----------------------------------------------
-     ! Runtime remote control (every 10 time steps)
-     !-----------------------------------------------
-     if (modulo(time%it,10)==0) then
-        ! fetch command from file
-        call runtime_control_command( command )
-        ! execute it
-        select case ( command )
-        case ("reload_params")
-          if (root) write (*,*) "runtime control: Reloading PARAMS file.."
-          ! read all parameters from the params.ini file
-          call get_params(params_file,Insect)
-          ! overwrite control file
-          if (root) call initialize_runtime_control_file()
-        case ("save_stop")
-          if (root) write (*,*) "runtime control: Safely stopping..."
-          continue_timestepping = .false. ! this will stop the time loop
-          ! overwrite control file
-          if (root) call initialize_runtime_control_file()
-        end select
-     endif
-
      if(root) call save_time_stepping_info (time%it,time%it_start,time%time,t2,t1,time%dt_new,t4)
 
      call MPI_BARRIER (MPI_COMM_WORLD,mpicode)

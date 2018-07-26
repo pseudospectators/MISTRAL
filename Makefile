@@ -5,7 +5,7 @@
 FFILES = rhs.f90 fluid_time_step.f90 init_fields.f90 \
 	mask.f90 mask_fsi.f90 save_fields.f90 time_step.f90 \
 	init_fields_fsi.f90 integrals.f90 params.f90 \
-	postprocessing.f90 runtime_control.f90 drag.f90 \
+	postprocessing.f90 drag.f90 \
 	draw_plate.f90 draw_sphere.f90 \
         kineloader.f90 rotation_matrices.f90 \
         add_channel.f90 add_cavity.f90 \
@@ -17,7 +17,8 @@ OBJS := $(FFILES:%.f90=$(OBJDIR)/%.o)
 
 # Files that create modules:
 MFILES = vars.f90 diff.f90 kine.f90 cof_p3dfft.f90 module_helpers.f90 \
-	interpolation.f90 basic_operators.f90 insects.f90 ghostpoints.f90
+	interpolation.f90 basic_operators.f90 insects.f90 ghostpoints.f90 \
+	ini_files_parser_mpi.f90 ini_files_parser.f90
 MOBJS := $(MFILES:%.f90=$(OBJDIR)/%.o)
 
 # Source code directories (colon-separated):
@@ -121,6 +122,10 @@ $(OBJDIR)/basic_operators.o: basic_operators.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_
 $(OBJDIR)/ghostpoints.o: ghostpoints.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/module_helpers.o: module_helpers.f90 $(OBJDIR)/vars.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/ini_files_parser_mpi.o: ini_files_parser_mpi.f90 $(OBJDIR)/vars.o $(OBJDIR)/ini_files_parser.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/ini_files_parser.o: ini_files_parser.f90 $(OBJDIR)/vars.o $(OBJDIR)/module_helpers.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 # Compile remaining objects from Fortran files.

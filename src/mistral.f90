@@ -27,7 +27,7 @@ program MISTRAL
       ! the first argument tells us that we're postprocessing
       !-------------------------------------------------------------------------
       call postprocessing()
-      
+
   else
       if (mpirank==0) write(*,*) "nothing to do..."
   endif
@@ -101,20 +101,8 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   ! decide about memory
   !-----------------------------------------------------------------------------
-  if (iTimeMethodFluid=="RK2") then
-    nrhs=2  ! number of registers for right hand side vectors
-  elseif (iTimeMethodFluid=="RK4") then
-    nrhs=5  ! number of registers for right hand side vectors
-  elseif (iTimeMethodFluid=="semiimplicit") then
-    nrhs=3  ! number of registers for right hand side vectors
-  elseif (iTimeMethodFluid=="AB2") then
-    nrhs=2  ! number of registers for right hand side vectors
-    time%n0=1
-    time%n1=2
-  elseif (iTimeMethodFluid=="FSI_RK2_semiimplicit") then
-    nrhs = 2
-  elseif (iTimeMethodFluid=="FSI_RK4_semiimplicit") then
-    nrhs = 5
+  if (iTimeMethodFluid=="RK4") then
+    nrhs = 5  ! number of registers for right hand side vectors
   else
     if (root) write(*,*) "mistral.f90 :: error: iTimeMethodFluid is unknown"
     if (root) write(*,*) iTimeMethodFluid
@@ -146,9 +134,6 @@ subroutine Start_Simulation()
   if ((mpirank==0).and.(inicond(1:8).ne."backup::")) then
     call initialize_time_series_files()
   endif
-
-  ! initialize runtime control file
-  if (mpirank==0) call initialize_runtime_control_file()
 
   ! Print domain decomposition
   call print_domain_decomposition()
