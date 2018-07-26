@@ -108,18 +108,33 @@ ifeq ($(FC),sxmpif90)
 LDFLAGS += -lblas
 endif
 
-LDFLAGS =
-ifeq ($(HDF5FLAG),yes)
+#LDFLAGS =
+#ifeq ($(HDF5FLAG),yes)
+#LDFLAGS += $(HDF5_FLAGS) -L$(HDF_LIB)
+#LDFLAGS += -lhdf5_fortran -lhdf5
+#endif
+#LDFLAGS += -llapack
+#ifeq ($(FC),sxmpif90)
+#LDFLAGS += -lblas
+#else
+#LDFLAGS += -lz -ldl
+#endif
+#LDFLAGS += -lm
+
+# Common build flags
+LDFLAGS = 
+ifndef NOHDF5
 LDFLAGS += $(HDF5_FLAGS) -L$(HDF_LIB)
 LDFLAGS += -lhdf5_fortran -lhdf5
 endif
-LDFLAGS += -llapack
-ifeq ($(FC),sxmpif90)
-LDFLAGS += -lblas
+ifdef MKLROOT
+# Use MKL lapack
+LDFLAGS += -I${MKLROOT}/include -L${MKLROOT}/lib/intel64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm -ldl
 else
-LDFLAGS += -lz -ldl
+# Use custom LAPACK installation
+LDFLAGS += -llapack
 endif
-LDFLAGS += -lm
+
 
 ifeq ($(HDF5FLAG),yes)
 FFLAGS += -I$(HDF_INC)
