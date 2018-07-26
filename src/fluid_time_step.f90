@@ -1,19 +1,19 @@
 !-------------------------------------------------------------------------------
 ! Warpper calling different individual time steppers
 !-------------------------------------------------------------------------------
-subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect)
+subroutine FluidTimestep(time,dt,u,nlk,work,mask,mask_color,us,Insect)
     use vars
     use insect_module
     implicit none
 
-    type(timetype), intent(inout) :: time
+    real(kind=pr), intent(inout) :: time, dt
     real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
     real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq,1:nrhs)
     real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
     real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
     real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
     integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-    
+
     type(diptera), intent(inout) :: Insect
 
     real(kind=pr)::t1
@@ -24,14 +24,15 @@ subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect)
     !-----------------------------------------------------------------------------
     select case(iTimeMethodFluid)
     case("RK4")
-        call RK4(time,u,nlk,work,mask,mask_color,us,Insect)
+        call RK4(time,dt,u,nlk,work,mask,mask_color,us,Insect)
+
     case default
-        if (root) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
-        call abort()
+        call abort(1234,"Error! iTimeMethodFluid unknown. Abort.")
+
     end select
 
     ! Force zero mode for mean flow
-    call set_mean_flow(u,time%time)
+    call set_mean_flow(u,time)
 
     !-----------------------------------------------------------------------------
     ! compute unsteady corrections in every time step.
@@ -45,46 +46,45 @@ end subroutine FluidTimestep
 
 !-------------------------------------------------------------------------------
 
-subroutine RK4(time,u,nlk,work,mask,mask_color,us,Insect)
+subroutine RK4(time,dt,u,nlk,work,mask,mask_color,us,Insect)
     use vars
     use insect_module
     use basic_operators
     implicit none
 
-    type(timetype), intent(inout) :: time
+    real(kind=pr), intent(inout) :: time, dt
     real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
     real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq,1:nrhs)
     real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
     real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
     real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
     integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-    
+
     type(diptera), intent(inout) :: Insect
-    type(timetype) :: t
-    real(kind=pr)::tmp1,tmp2,tmp3,tmp4
+    real(kind=pr) :: t
     t = time
 
-    call adjust_dt(time%time,u,time%dt_new)
+    call adjust_dt(time,u,dt)
 
     ! NLK 5th register holds old velocity
     nlk(:,:,:,:,5) = u
 
-    !-- Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
+
     call cal_nlk(time,u,nlk(:,:,:,:,1),work,mask,mask_color,us,Insect)
 
-    u = nlk(:,:,:,:,5) + 0.5d0*time%dt_new*nlk(:,:,:,:,1)
-    t%time = time%time + 0.5d0*time%dt_new
+    u = nlk(:,:,:,:,5) + 0.5d0*dt*nlk(:,:,:,:,1)
+    t = time + 0.5d0*dt
     call cal_nlk(t,u,nlk(:,:,:,:,2),work,mask,mask_color,us,Insect)
 
-    u = nlk(:,:,:,:,5) + 0.5d0*time%dt_new*nlk(:,:,:,:,2)
-    t%time = time%time + 0.5d0*time%dt_new
+    u = nlk(:,:,:,:,5) + 0.5d0*dt*nlk(:,:,:,:,2)
+    t = time + 0.5d0*dt
     call cal_nlk(t,u,nlk(:,:,:,:,3),work,mask,mask_color,us,Insect)
 
-    u = nlk(:,:,:,:,5) + time%dt_new * nlk(:,:,:,:,3)
-    t%time = time%time + time%dt_new
+    u = nlk(:,:,:,:,5) + dt * nlk(:,:,:,:,3)
+    t = time + dt
     call cal_nlk(t,u,nlk(:,:,:,:,4),work,mask,mask_color,us,Insect)
 
-    u = nlk(:,:,:,:,5) + time%dt_new/6.d0*(nlk(:,:,:,:,1)+2.d0*nlk(:,:,:,:,2)&
+    u = nlk(:,:,:,:,5) + dt/6.d0*(nlk(:,:,:,:,1)+2.d0*nlk(:,:,:,:,2)&
     +2.d0*nlk(:,:,:,:,3)+nlk(:,:,:,:,4))
 
 end subroutine RK4
@@ -105,9 +105,9 @@ subroutine adjust_dt(time,u,dt1)
     use basic_operators
     implicit none
 
-    real(kind=pr),intent(in)::time
-    real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-    real(kind=pr), intent(out)::dt1
+    real(kind=pr), intent(in) :: time
+    real(kind=pr), intent(inout) :: u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+    real(kind=pr), intent(out) :: dt1
     integer::mpicode
     real(kind=pr)::umax
     !real(kind=pr)::tmp(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)

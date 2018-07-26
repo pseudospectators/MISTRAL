@@ -46,14 +46,12 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,params_file)
      !-------------------------------------------------
      if(dry_run_without_fluid/="yes") then
        ! make a time step of the fluid
-       call fluidtimestep(time,u,nlk,work,mask,mask_color,us,Insect)
+       call fluidtimestep(time%time,time%dt_new,u,nlk,work,mask,mask_color,us,Insect)
      endif
 
      !-----------------------------------------------
      ! time step done: advance iteration + time
      !-----------------------------------------------
-     ! change registers for AB2:
-     inter=time%n1 ; time%n1=time%n0 ; time%n0=inter
      ! Advance in time so that uk contains the evolved field at time 'time+dt1'
      time%time = time%time + time%dt_new
      time%dt_old=time%dt_new

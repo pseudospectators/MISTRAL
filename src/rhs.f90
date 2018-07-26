@@ -6,7 +6,7 @@ subroutine cal_nlk(time,u,nlk,work,mask,mask_color,us,Insect)
     use vars
     implicit none
 
-    type(timetype), intent(inout) :: time
+    real(kind=pr), intent(inout) :: time
     real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
     real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
     real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
@@ -22,7 +22,7 @@ subroutine cal_nlk(time,u,nlk,work,mask,mask_color,us,Insect)
     ! Update mask function to ensure it is at the right time
     !-----------------------------------------------------------------------------
     if ((iMoving==1).and.(iPenalization==1)) then
-        call create_mask( time%time,mask,mask_color,us, Insect, 0 )
+        call create_mask( time,mask,mask_color,us, Insect, 0 )
     endif
 
     !-----------------------------------------------------------------------------
@@ -82,7 +82,7 @@ subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,impmode)
     use ghosts
 
     implicit none
-    type(timetype), intent(in) :: time
+    real(kind=pr), intent(in) :: time
     real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
     real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
     real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
@@ -206,7 +206,7 @@ subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,impmode)
     use ghosts
 
     implicit none
-    type(timetype), intent(in) :: time
+    real(kind=pr), intent(in) :: time
     real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
     real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
     real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
@@ -368,7 +368,7 @@ subroutine rhs_acm_2nd_2D(time,u,nlk,work,mask,mask_color,us,Insect,impmode)
     use ghosts
 
     implicit none
-    type(timetype), intent(in) :: time
+    real(kind=pr), intent(in) :: time
     real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
     real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
     real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
@@ -468,7 +468,7 @@ subroutine rhs_acm_4th_2d(time,u,nlk,work,mask,mask_color,us,Insect,impmode)
     use ghosts
 
     implicit none
-    type(timetype), intent(in) :: time
+    real(kind=pr), intent(in) :: time
     real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
     real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
     real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
@@ -577,7 +577,7 @@ subroutine forcing_term(time,u,forcing)
     use basic_operators
 
     implicit none
-    type(timetype),intent(in):: time
+    real(kind=pr),intent(in):: time
     real(kind=pr),intent(inout) :: u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
     real(kind=pr),intent(inout):: forcing(1:3)
 
@@ -589,17 +589,17 @@ subroutine forcing_term(time,u,forcing)
         ! compute mean velocity in this direction
         ux_mean = volume_integral(u(:,:,:,1))/(xl*yl*zl)
         ! the force stabilizes around unity
-        forcing(1) = max(0.d0,1.d0-ux_mean)*startup_conditioner(time%time,0.d0,0.50d0)
+        forcing(1) = max(0.d0,1.d0-ux_mean)*startup_conditioner(time,0.d0,0.50d0)
     endif
 
     if (iMeanFlow_y=="accelerate_to_unity") then
         uy_mean = volume_integral(u(:,:,:,2))/(xl*yl*zl)
-        forcing(2) = max(0.d0,1.d0-uy_mean)*startup_conditioner(time%time,0.d0,0.50d0)
+        forcing(2) = max(0.d0,1.d0-uy_mean)*startup_conditioner(time,0.d0,0.50d0)
     endif
 
     if (iMeanFlow_z=="accelerate_to_unity") then
         uz_mean = volume_integral(u(:,:,:,3))/(xl*yl*zl)
-        forcing(3) = max(0.d0,1.d0-uz_mean)*startup_conditioner(time%time,0.d0,0.50d0)
+        forcing(3) = max(0.d0,1.d0-uz_mean)*startup_conditioner(time,0.d0,0.50d0)
     endif
 
 end subroutine forcing_term
