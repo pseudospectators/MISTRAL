@@ -1,6 +1,5 @@
 program MISTRAL
   use vars
-  use solid_model
   use insect_module
   implicit none
   integer                :: mpicode
@@ -10,39 +9,30 @@ program MISTRAL
   ! Initialize MPI, get size and rank
   call MPI_INIT (mpicode)
   call MPI_COMM_SIZE (MPI_COMM_WORLD,mpisize,mpicode)
-  call MPI_COMM_RANK (MPI_COMM_WORLD,mpirank,mpicode) 
-  
+  call MPI_COMM_RANK (MPI_COMM_WORLD,mpirank,mpicode)
+
   if (mpirank==0) root=.true.
-  
+
   ! get filename of PARAMS file from command line
   call get_command_argument(1,infile)
-  
-  if ( index(infile,'.ini') .ne. 0) then  
+
+  if ( index(infile,'.ini') .ne. 0) then
       !-------------------------------------------------------------------------
-      ! the file is an *.ini file -> we run a normal simulation 
+      ! the file is an *.ini file -> we run a normal simulation
       !-------------------------------------------------------------------------
-      call Start_Simulation()    
-      
-  elseif ( infile == "--postprocess" .or. infile == "--post") then 
+      call Start_Simulation()
+
+  elseif ( infile == "--postprocess" .or. infile == "--post") then
       !-------------------------------------------------------------------------
-      ! the first argument tells us that we're postprocessing 
+      ! the first argument tells us that we're postprocessing
       !-------------------------------------------------------------------------
       call postprocessing()
       
-  elseif ( infile == "--solid" ) then
-      !-------------------------------------------------------------------------
-      ! run solid model only
-      !-------------------------------------------------------------------------
-      method="fsi" ! We are doing fluid-structure interactions
-      call get_command_argument(2,infile)
-      call get_params(infile,dummyinsect)
-      call OnlySolidSimulation()
-      
   else
-      if (mpirank==0) write(*,*) "nothing to do..."      
+      if (mpirank==0) write(*,*) "nothing to do..."
   endif
 
-  
+
   call MPI_FINALIZE(mpicode)
   call exit(0)
 end program MISTRAL
@@ -52,7 +42,6 @@ subroutine Start_Simulation()
   use mpi
   use vars
   use p3dfft_wrapper
-  use solid_model
   use insect_module
   use kine ! kinematics from file (Dmitry, 14 Nov 2013)
   implicit none
@@ -60,7 +49,7 @@ subroutine Start_Simulation()
   real(kind=pr)          :: memory, mem_field
   type(timetype) :: time
   character (len=strlen) :: infile
-  
+
   ! mask color function
 !  integer(kind=2),dimension (:,:,:),allocatable,save :: mask_color
   integer(kind=2),dimension (:,:,:),allocatable :: mask_color
@@ -68,7 +57,7 @@ subroutine Start_Simulation()
   real(kind=pr),dimension(:,:,:),allocatable :: mask
   ! solution vector u
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
-  ! velocity-field inside solid 
+  ! velocity-field inside solid
   real(kind=pr),dimension(:,:,:,:),allocatable :: us
   ! work arrays
   real(kind=pr),dimension(:,:,:,:),allocatable :: work
@@ -76,23 +65,21 @@ subroutine Start_Simulation()
   real(kind=pr),dimension(:,:,:,:,:),allocatable :: nlk
   ! this is the insect we're using (object oriented)
   type(diptera) :: Insect
-  ! this is the solid model beams:
-  type(solid), dimension(1:nBeams) :: beams
- 
+
   ! Set method information in vars module.
   t1 = MPI_wtime()
   neq=4  ! number of equations, can be higher than 3 if using passive scalar
   nrw=1  ! number of real valued work arrays
-  
+
   ! initialize timing variables
   time_mask=0.d0
   time_fluid=0.d0
   time_bckp=0.d0; time_save=0.d0; time_total=MPI_wtime()
-  time_insect_body=0.d0; 
+  time_insect_body=0.d0;
   time_insect_wings=0.d0; time_insect_vel=0.d0
   time_solid=0.d0; time_drag=0.d0; time_surf=0.d0; time_LAPACK=0.d0
   time_hdf5=0.d0; time_integrals=0.d0; time_rhs=0.d0
-  
+
   if (root) then
      write(*,'(A)') '--------------------------------------'
      write(*,'(A)') '  MISTRAL  '
@@ -101,7 +88,7 @@ subroutine Start_Simulation()
      write(*,'(A)') '--------------------------------------'
   endif
 
-  
+
   !-----------------------------------------------------------------------------
   ! Read input parameters
   !-----------------------------------------------------------------------------
@@ -110,7 +97,7 @@ subroutine Start_Simulation()
   call get_command_argument(1,infile)
   ! read all parameters from that file
   call get_params(infile,Insect)
-  
+
   !-----------------------------------------------------------------------------
   ! decide about memory
   !-----------------------------------------------------------------------------
@@ -133,7 +120,7 @@ subroutine Start_Simulation()
     if (root) write(*,*) iTimeMethodFluid
     call abort()
   endif
-  
+
   !-----------------------------------------------------------------------------
   ! ghost points. the number of ghosts we need depends on the Discretization
   ! and the interpolation method for FSI pressure
@@ -144,25 +131,25 @@ subroutine Start_Simulation()
   if (use_solid_model=="yes") ng = 3
   if (root) write(*,'("Set up ng=",i1," ghost points")') ng
   if (root) write(*,'("Discretization: ",A)') trim(method)
-  
+
   !-----------------------------------------------------------------------------
   ! Initialize FFT (this also defines local array bounds for arrays)
-  !-----------------------------------------------------------------------------  
+  !-----------------------------------------------------------------------------
   ! Initialize p3dfft
   call fft_initialize
   ! Setup communicators used for ghost point update
-  call setup_cart_groups 
-  
+  call setup_cart_groups
+
   !-----------------------------------------------------------------------------
   ! Initialize time series output files, if not resuming a backup
   !-----------------------------------------------------------------------------
-  if ((mpirank==0).and.(inicond(1:8).ne."backup::")) then 
+  if ((mpirank==0).and.(inicond(1:8).ne."backup::")) then
     call initialize_time_series_files()
   endif
-  
+
   ! initialize runtime control file
   if (mpirank==0) call initialize_runtime_control_file()
- 
+
   ! Print domain decomposition
   call print_domain_decomposition()
 
@@ -170,30 +157,30 @@ subroutine Start_Simulation()
   ! Allocate memory:
   !-----------------------------------------------------------------------------
 
-  ! size (in bytes) of one field  
+  ! size (in bytes) of one field
   mem_field = dble(nx)*dble(ny)*dble(nz)*8.d0
   memory = 0.d0
-  
+
   ! right hand side of navier-stokes (possibly with passive scalar)
   allocate(nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq,1:nrhs))
   memory = memory + dble(neq*nrhs)*mem_field
-  
+
   ! velocity in physical space (WITHOUT passive scalar)
   allocate(u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq))
   memory = memory + dble(neq)*mem_field
-  
+
   ! mask function (defines the geometry)
-  allocate(mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))  
+  allocate(mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
   memory = memory + mem_field
-  
+
   ! mask color function (distinguishes between different parts of the mask)
   allocate(mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
   memory = memory + mem_field/4.d0
-  
+
   ! solid body velocities
-  allocate(us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)) 
+  allocate(us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq))
   memory = memory + dble(neq)*mem_field
-  
+
   ! allocate one work array
   allocate(work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw))
   memory = memory + dble(nrw)*mem_field
@@ -210,7 +197,7 @@ subroutine Start_Simulation()
     memory/(1.0d6)/dble(mpisize),memory/(1.0d9)/dble(mpisize)
     write(*,'(80("-"))')
   endif
-  
+
   !-----------------------------------------------------------------------------
   ! initalize some insect stuff, if used
   !-----------------------------------------------------------------------------
@@ -224,16 +211,16 @@ subroutine Start_Simulation()
     ! and set idynamics flag on or off
     call rigid_solid_init(SolidDyn%idynamics,Insect)
   endif
- 
+
   !-----------------------------------------------------------------------------
   ! Initial condition
   !-----------------------------------------------------------------------------
-  call init_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
-  
+  call init_fields(time,u,nlk,work,mask,mask_color,us,Insect)
+
   !*****************************************************************************
   ! Step forward in time
   !*****************************************************************************
-  call time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,infile)
+  call time_step(time,u,nlk,work,mask,mask_color,us,Insect,infile)
 
   !-----------------------------------------------------------------------------
   ! Deallocate memory
@@ -244,20 +231,20 @@ subroutine Start_Simulation()
   deallocate(mask)
   deallocate(mask_color)
   deallocate(ra_table,rb_table)
-  
+
   if (iMask=="Insect") then
     ! Clean kinematics (Dmitry, 14 Nov 2013)
     if (Insect%KineFromFile/="no") call load_kine_clean
     ! Clean insect (the globally stored arrays for Fourier coeffs etc..)
     call insect_clean(Insect)
   endif
-  
+
   ! write empty success file
   if (root) call init_empty_file("success")
-  
+
   ! release other memory
-  call fft_free 
-  
+  call fft_free
+
   !-------------------------
   ! Show the breakdown of timing information
   !-------------------------
@@ -282,7 +269,7 @@ subroutine show_timings(t2)
   write(*,'("*** Timings")')
   write(*,3)
   write(*,'("time stepping (top level tasks)")')
-  
+
   write(*,8) time_fluid, 100.d0*time_fluid/t2, "fluid time stepping"
   write(*,8) time_integrals, 100.d0*time_integrals/t2, "integrals"
   write(*,8) time_save, 100.d0*time_save/t2, "save fields"
@@ -296,14 +283,14 @@ subroutine show_timings(t2)
   write(*,'("save fields:")')
   write(*,8) time_hdf5, 100.d0*time_hdf5/t2, "hdf5 disk dumping"
   write(*,3)
-  
+
   write(*,'("Fluid time stepping:")')
   write(*,8) time_mask, 100.d0*time_mask/t2, "create_mask"
   write(*,8) time_rhs,100.d0*time_rhs/t2,"cal_nlk"
   write(*,8) time_solid,100.d0*time_solid/t2,"solid  model"
   write(*,8) time_surf,100.d0*time_surf/t2,"surface interpolation"
   write(*,3)
-  
+
   write(*,'("Total walltime ",es12.4," (",i7," CPUh)")') t2, nint( t2*dble(mpisize)/3600.d0 )
   write(*,3)
   write(*,'(A)') 'Finalizing computation....'
@@ -315,7 +302,7 @@ end subroutine show_timings
 subroutine initialize_time_series_files()
   use vars
   implicit none
-  
+
   ! For insect wing/body forces
   if (iMask=='Insect') then
   open  (14,file='forces.t',status='replace')
@@ -355,22 +342,22 @@ subroutine initialize_time_series_files()
                       "rot_r_x","rot_r_y","rot_r_z",&
                       "rot_dt_l_x","rot_dt_l_y","rot_dt_l_z",&
                       "rot_dt_r_x","rot_dt_r_y","rot_dt_r_z"
-                      
+
     close (14)
   ! If this is not an insect
-  else 
+  else
     open  (14,file='forces.t',status='replace')
     write (14,'(13(A15,1x))') "%          time","Forcex","Forcey","Forcez",&
                       "Forcex_unst","Forcey_unst","Forcez_unst",&
                       "Momentx","Momenty","Momentz",&
                       "Momentx_unst","Momenty_unst","Momentz_unst"
     close (14)
-  endif    
+  endif
 
   open  (14,file='divu.t',status='replace')
   write (14,'(3(A15,1x))') "%          time","max_div","max_div_fluid"
   close (14)
-  
+
   open  (14,file='energy.t',status='replace')
   write (14,'(18(A15,1x))') "%          time",&
                      "E_kin_f","E_kin_x_f","E_kin_y_f","E_kin_z_f",&
@@ -378,17 +365,17 @@ subroutine initialize_time_series_files()
                      "E_kin_tot","E_kin_tot_x","E_kin_tot_y","E_kin_tot_z",&
                      "diss_tot","diss_tot_x","diss_tot_y","diss_tot_z",&
                      "flux_penal"
-                      
+
   close (14)
-  
+
   ! this file contains, time, iteration#, time step and performance
   open  (14,file='timestep.t',status='replace')
   write (14,'(4(A15,1x))') "%            it","time","dt","avg sec/step", "sec/step"
-  close (14)    
-  
+  close (14)
+
   open  (14,file='meanflow.t',status='replace')
   write (14,'(4(A15,1x))') "%          time","mean_ux","mean_uy","mean_uz"
-  close (14)  
+  close (14)
 
   call init_empty_file('iterations.t')
   call init_empty_file('mask_volume.t')
@@ -402,7 +389,7 @@ subroutine print_domain_decomposition()
   use mpi
   implicit none
   integer :: mpicode
-  
+
   if (root) then
      write(*,'(A)') '--------------------------------------'
      write(*,'(A)') '*** Domain decomposition:'
@@ -412,4 +399,4 @@ subroutine print_domain_decomposition()
   write (*,'("rank=",i5," (",i4,":",i4," |",i4,":",i4," |",i4,":",i4,")")') &
        mpirank, ga(1),gb(1), ga(2),gb(2),ga(3),gb(3)
   call MPI_barrier (MPI_COMM_world, mpicode)
-end subroutine 
+end subroutine

@@ -1,9 +1,8 @@
 !-------------------------------------------------------------------------------
 ! Warpper calling different individual time steppers
 !-------------------------------------------------------------------------------
-subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect)
     use vars
-    use solid_model
     use insect_module
     implicit none
 
@@ -14,7 +13,7 @@ subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
     real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
     real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
     integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-    type(solid), dimension(1:nBeams),intent(inout) :: beams
+    
     type(diptera), intent(inout) :: Insect
 
     real(kind=pr)::t1
@@ -25,7 +24,7 @@ subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
     !-----------------------------------------------------------------------------
     select case(iTimeMethodFluid)
     case("RK4")
-        call RK4(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+        call RK4(time,u,nlk,work,mask,mask_color,us,Insect)
     case default
         if (root) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
         call abort()
@@ -46,9 +45,8 @@ end subroutine FluidTimestep
 
 !-------------------------------------------------------------------------------
 
-subroutine RK4(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+subroutine RK4(time,u,nlk,work,mask,mask_color,us,Insect)
     use vars
-    use solid_model
     use insect_module
     use basic_operators
     implicit none
@@ -60,7 +58,7 @@ subroutine RK4(time,u,nlk,work,mask,mask_color,us,Insect,beams)
     real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
     real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
     integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-    type(solid), dimension(1:nBeams),intent(inout) :: beams
+    
     type(diptera), intent(inout) :: Insect
     type(timetype) :: t
     real(kind=pr)::tmp1,tmp2,tmp3,tmp4
@@ -72,19 +70,19 @@ subroutine RK4(time,u,nlk,work,mask,mask_color,us,Insect,beams)
     nlk(:,:,:,:,5) = u
 
     !-- Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
-    call cal_nlk(time,u,nlk(:,:,:,:,1),work,mask,mask_color,us,Insect,beams)
+    call cal_nlk(time,u,nlk(:,:,:,:,1),work,mask,mask_color,us,Insect)
 
     u = nlk(:,:,:,:,5) + 0.5d0*time%dt_new*nlk(:,:,:,:,1)
     t%time = time%time + 0.5d0*time%dt_new
-    call cal_nlk(t,u,nlk(:,:,:,:,2),work,mask,mask_color,us,Insect,beams)
+    call cal_nlk(t,u,nlk(:,:,:,:,2),work,mask,mask_color,us,Insect)
 
     u = nlk(:,:,:,:,5) + 0.5d0*time%dt_new*nlk(:,:,:,:,2)
     t%time = time%time + 0.5d0*time%dt_new
-    call cal_nlk(t,u,nlk(:,:,:,:,3),work,mask,mask_color,us,Insect,beams)
+    call cal_nlk(t,u,nlk(:,:,:,:,3),work,mask,mask_color,us,Insect)
 
     u = nlk(:,:,:,:,5) + time%dt_new * nlk(:,:,:,:,3)
     t%time = time%time + time%dt_new
-    call cal_nlk(t,u,nlk(:,:,:,:,4),work,mask,mask_color,us,Insect,beams)
+    call cal_nlk(t,u,nlk(:,:,:,:,4),work,mask,mask_color,us,Insect)
 
     u = nlk(:,:,:,:,5) + time%dt_new/6.d0*(nlk(:,:,:,:,1)+2.d0*nlk(:,:,:,:,2)&
     +2.d0*nlk(:,:,:,:,3)+nlk(:,:,:,:,4))
