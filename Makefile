@@ -9,7 +9,7 @@ FFILES = rhs.f90 fluid_time_step.f90 init_fields.f90 \
 	draw_plate.f90 draw_sphere.f90 \
         kineloader.f90 rotation_matrices.f90 \
         add_channel.f90 add_cavity.f90 \
-        noncircular_cylinder.f90 draw_flexible_plate.f90 implicit.f90
+        noncircular_cylinder.f90 draw_flexible_plate.f90
 
 # Object and module directory:
 OBJDIR=obj
@@ -41,9 +41,9 @@ ifeq ($(shell $(FC) --version 2>&1 | head -n 1 | head -c 3),GNU)
 # Specify directory for compiled modules:
 FFLAGS += -J$(OBJDIR) # specify directory for modules.
 FFLAGS += -O3
-#FFLAGS += -Wall # warn for unused and uninitialzied variables 
+#FFLAGS += -Wall # warn for unused and uninitialzied variables
 #FFLAGS += -Werror # warnings are errors
-#FFLAGS += -pedantic 
+#FFLAGS += -pedantic
 PPFLAG= -cpp #preprocessor flag
 # Debug flags for gfortran:
 #FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb
@@ -53,10 +53,10 @@ endif
 ifort:=$(shell $(FC) --version | head -c 5)
 ifeq ($(ifort),ifort)
 PPFLAG= -fpp #preprocessor flag
-DIFORT= -DIFORT # define the IFORT variable 
+DIFORT= -DIFORT # define the IFORT variable
 FFLAGS += -module $(OBJDIR) # specify directory for modules.
 FFLAGS += -vec_report0
-#FFLAGS += -mcmodel=medium -i-dynamic  
+#FFLAGS += -mcmodel=medium -i-dynamic
 # debug flags for ifort:
 #FFLAGS += -g -pg
 #FFLAGS +=-CB -traceback -debug extended -fpe0 -warn -check all -gen-interfaces -warn interfaces
@@ -92,7 +92,7 @@ FFLAGS += -I$(HDF_INC) -I$(P3DFFT_INC) -I$(FFT_INC) $(PPFLAG) $(DIFORT)
 
 
 # Both programs are compiled by default.
-all: directories $(PROGRAMS) 
+all: directories $(PROGRAMS)
 
 # Compile main programs, with dependencies.
 mistral: mistral.f90 $(MOBJS) $(OBJS)
@@ -106,17 +106,17 @@ $(OBJDIR)/vars.o: vars.f90
 $(OBJDIR)/kine.o: kine.f90
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/diff.o: diff.f90 $(OBJDIR)/vars.o $(OBJDIR)/ghostpoints.o
-	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)	
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/cof_p3dfft.o: cof_p3dfft.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/insects.o: insects.f90 $(OBJDIR)/vars.o $(OBJDIR)/kine.o \
 	body_geometry.f90 body_motion.f90 rigid_solid_time_stepper.f90 wings_geometry.f90 wings_motion.f90 stroke_plane.f90
-	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)	
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/solid_solver.o: solid_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpolation.o $(OBJDIR)/basic_operators.o $(OBJDIR)/insects.o \
 	mouvement.f90 integrate_position.f90 init_beam.f90 save_beam.f90 BeamForces.f90 plate_geometry.f90 $(OBJDIR)/ghostpoints.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/interpolation.o: interpolation.f90 $(OBJDIR)/vars.o $(OBJDIR)/basic_operators.o
-	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)	
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/basic_operators.o: basic_operators.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_p3dfft.o $(OBJDIR)/diff.o \
 	$(OBJDIR)/ghostpoints.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
