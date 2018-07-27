@@ -65,6 +65,7 @@ module vars
   character(len=strlen),save :: method
   character(len=strlen),save :: dry_run_without_fluid ! just save mask function
   character(len=strlen),save :: iMethodOrder = "4th-opt"
+  character(len=strlen),save :: p_mean_zero = "no"
 
   integer,save :: neq ! number of equations
   integer,save :: nrw ! number of real work arrays in work

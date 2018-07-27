@@ -5,6 +5,7 @@ subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   use vars
   use solid_model
   use insect_module
+  use basic_operators
   implicit none
 
   type(timetype), intent(inout) :: time
@@ -17,8 +18,14 @@ subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
 
-  real(kind=pr)::t1
-  t1=MPI_wtime()
+  real(kind=pr) :: t1, p_mean
+  t1 = MPI_wtime()
+
+  ! remove mean pressure (it has no physical meaning anyways, only gradients matter)
+  if ( p_mean_zero == "yes" ) then
+      p_mean = volume_integral(u(:,:,:,4)) / (xl*yl*zl)
+      u(:,:,:,4) = u( :,:,:,4) - p_mean
+  endif
 
   !-----------------------------------------------------------------------------
   ! Call fluid advancement subroutines.
